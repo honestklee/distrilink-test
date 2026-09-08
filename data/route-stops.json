@@ -1,0 +1,92 @@
+[
+  {
+    "id": "STP-01",
+    "orderIndex": 1,
+    "outletName": "Toko Sumber Berkah",
+    "owner": "Haji Ahmad",
+    "address": "Jl. Asia Afrika No. 45, Bandung Kota",
+    "scheduledTime": "08:30 WIB",
+    "actualCheckIn": "08:32 WIB",
+    "actualCheckOut": "09:15 WIB",
+    "durationMinutes": 43,
+    "orderValueRp": 1850000,
+    "status": "completed",
+    "coordinates": {
+      "lat": -6.9218,
+      "lng": 107.6071
+    },
+    "notes": "Restock Minyak Goreng & Beras, pembayaran tempo aman."
+  },
+  {
+    "id": "STP-02",
+    "orderIndex": 2,
+    "outletName": "Warung Bu Siti",
+    "owner": "Siti Rohayati",
+    "address": "Jl. Sudirman No. 112, Bandung",
+    "scheduledTime": "09:45 WIB",
+    "actualCheckIn": "09:50 WIB",
+    "actualCheckOut": "10:25 WIB",
+    "durationMinutes": 35,
+    "orderValueRp": 920000,
+    "status": "completed",
+    "coordinates": {
+      "lat": -6.9189,
+      "lng": 107.5954
+    },
+    "notes": "Order kopi kemasan dan snack, mengajukan retur 2 kaleng rusak."
+  },
+  {
+    "id": "STP-03",
+    "orderIndex": 3,
+    "outletName": "Minimarket Barokah Mandiri",
+    "owner": "Rudi Hartono",
+    "address": "Jl. Pasirkaliki No. 78, Bandung",
+    "scheduledTime": "10:45 WIB",
+    "actualCheckIn": "10:52 WIB",
+    "status": "in_progress",
+    "coordinates": {
+      "lat": -6.9084,
+      "lng": 107.6022
+    },
+    "notes": "Sedang pengecekan stok display dan pengambilan PO."
+  },
+  {
+    "id": "STP-04",
+    "orderIndex": 4,
+    "outletName": "Toko Harapan Jaya",
+    "owner": "Bambang Sudiro",
+    "address": "Jl. Cihampelas No. 204, Bandung",
+    "scheduledTime": "13:00 WIB",
+    "status": "waiting",
+    "coordinates": {
+      "lat": -6.8925,
+      "lng": 107.6048
+    }
+  },
+  {
+    "id": "STP-05",
+    "orderIndex": 5,
+    "outletName": "Kios Rezeki Baru",
+    "owner": "Hj. Aminah",
+    "address": "Jl. Setiabudhi No. 56, Bandung",
+    "scheduledTime": "14:30 WIB",
+    "status": "waiting",
+    "coordinates": {
+      "lat": -6.8741,
+      "lng": 107.5982
+    }
+  },
+  {
+    "id": "STP-06",
+    "orderIndex": 6,
+    "outletName": "Grosir Sentosa Abadi",
+    "owner": "Koh Kevin",
+    "address": "Jl. Sukajadi No. 138, Bandung",
+    "scheduledTime": "16:00 WIB",
+    "status": "waiting",
+    "coordinates": {
+      "lat": -6.8856,
+      "lng": 107.5921
+    }
+  }
+]

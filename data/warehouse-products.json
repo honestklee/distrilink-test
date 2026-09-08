@@ -1,0 +1,70 @@
+[
+  {
+    "id": "PRD-001",
+    "name": "Minyak Goreng Rose Brand 2L",
+    "category": "Sembako",
+    "price": 34000,
+    "stock": 140,
+    "unit": "pouch"
+  },
+  {
+    "id": "PRD-002",
+    "name": "Beras Premium Pandan Wangi 5kg",
+    "category": "Sembako",
+    "price": 75000,
+    "stock": 0,
+    "unit": "sak",
+    "substituteId": "PRD-007",
+    "substituteName": "Beras Premium Ramos Setra 5kg (Tersedia 60 sak)"
+  },
+  {
+    "id": "PRD-003",
+    "name": "Kopi Kapal Api Special Mix (Renteng)",
+    "category": "Minuman",
+    "price": 18500,
+    "stock": 220,
+    "unit": "renteng"
+  },
+  {
+    "id": "PRD-004",
+    "name": "Susu Ultra Milk UHT 1L Full Cream",
+    "category": "Minuman",
+    "price": 21000,
+    "stock": 0,
+    "unit": "kotak",
+    "substituteId": "PRD-008",
+    "substituteName": "Susu Indomilk UHT 1L Plain (Tersedia 45 kotak)"
+  },
+  {
+    "id": "PRD-005",
+    "name": "Gula Pasir Gulaku Tebu 1kg",
+    "category": "Sembako",
+    "price": 17500,
+    "stock": 8,
+    "unit": "bungkus"
+  },
+  {
+    "id": "PRD-006",
+    "name": "Teh Botol Sosro 250ml (Karton)",
+    "category": "Minuman",
+    "price": 72000,
+    "stock": 60,
+    "unit": "karton"
+  },
+  {
+    "id": "PRD-007",
+    "name": "Beras Premium Ramos Setra 5kg",
+    "category": "Sembako",
+    "price": 74000,
+    "stock": 60,
+    "unit": "sak"
+  },
+  {
+    "id": "PRD-008",
+    "name": "Susu Indomilk UHT 1L Plain",
+    "category": "Minuman",
+    "price": 20500,
+    "stock": 45,
+    "unit": "kotak"
+  }
+]

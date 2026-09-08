@@ -1,0 +1,54 @@
+[
+  {
+    "id": "OUT-BDG-001",
+    "name": "Toko Sumber Berkah",
+    "owner": "Haji Ahmad",
+    "phone": "081234567890",
+    "category": "Grosir Sembako",
+    "area": "Bandung Kota",
+    "address": "Jl. Asia Afrika No. 45, Bandung",
+    "latitude": -6.921852,
+    "longitude": 107.607185,
+    "status": "Verified",
+    "registeredDate": "01 Sep 2026"
+  },
+  {
+    "id": "OUT-BDG-002",
+    "name": "Warung Bu Siti",
+    "owner": "Siti Rohayati",
+    "phone": "081398765432",
+    "category": "Toko Kelontong",
+    "area": "Bandung Barat",
+    "address": "Jl. Raya Cimareme No. 12, Padalarang",
+    "latitude": -6.868212,
+    "longitude": 107.498321,
+    "status": "Verified",
+    "registeredDate": "03 Sep 2026"
+  },
+  {
+    "id": "OUT-BDG-003",
+    "name": "Minimarket Barokah",
+    "owner": "Rudi Hartono",
+    "phone": "085712349988",
+    "category": "Minimarket Mandiri",
+    "area": "Cimahi",
+    "address": "Jl. Amir Machmud No. 88, Cimahi",
+    "latitude": -6.872341,
+    "longitude": 107.542119,
+    "status": "Pending Approval",
+    "registeredDate": "06 Sep 2026"
+  },
+  {
+    "id": "OUT-BDG-004",
+    "name": "Toko Harapan Jaya",
+    "owner": "Bambang Sudiro",
+    "phone": "082188776655",
+    "category": "Grosir Sembako",
+    "area": "Soreang",
+    "address": "Jl. Raya Soreang - Banjaran No. 104",
+    "latitude": -7.032115,
+    "longitude": 107.519822,
+    "status": "Verified",
+    "registeredDate": "05 Sep 2026"
+  }
+]

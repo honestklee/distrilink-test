@@ -1,0 +1,74 @@
+[
+  {
+    "sku": "SKU-001",
+    "name": "Minyak Goreng Rose Brand 2L",
+    "category": "Sembako",
+    "depoStock": 140,
+    "safetyStock": 50,
+    "reorderPoint": 80,
+    "unit": "pouch",
+    "status": "Aman",
+    "daysOfInventory": 12,
+    "fastMovingRank": 1
+  },
+  {
+    "sku": "SKU-002",
+    "name": "Beras Premium Pandan Wangi 5kg",
+    "category": "Sembako",
+    "depoStock": 0,
+    "safetyStock": 30,
+    "reorderPoint": 45,
+    "unit": "sak",
+    "status": "Habis",
+    "daysOfInventory": 0,
+    "fastMovingRank": 2
+  },
+  {
+    "sku": "SKU-003",
+    "name": "Kopi Kapal Api Special Mix (Renteng)",
+    "category": "Minuman",
+    "depoStock": 220,
+    "safetyStock": 60,
+    "reorderPoint": 100,
+    "unit": "renteng",
+    "status": "Aman",
+    "daysOfInventory": 18,
+    "fastMovingRank": 3
+  },
+  {
+    "sku": "SKU-004",
+    "name": "Susu Ultra Milk UHT 1L Full Cream",
+    "category": "Minuman",
+    "depoStock": 0,
+    "safetyStock": 25,
+    "reorderPoint": 40,
+    "unit": "kotak",
+    "status": "Habis",
+    "daysOfInventory": 0,
+    "fastMovingRank": 4
+  },
+  {
+    "sku": "SKU-005",
+    "name": "Gula Pasir Gulaku Tebu 1kg",
+    "category": "Sembako",
+    "depoStock": 8,
+    "safetyStock": 20,
+    "reorderPoint": 35,
+    "unit": "bungkus",
+    "status": "Kritis",
+    "daysOfInventory": 2,
+    "fastMovingRank": 5
+  },
+  {
+    "sku": "SKU-006",
+    "name": "Teh Botol Sosro Kotak 250ml (Karton)",
+    "category": "Minuman",
+    "depoStock": 60,
+    "safetyStock": 20,
+    "reorderPoint": 30,
+    "unit": "karton",
+    "status": "Aman",
+    "daysOfInventory": 9,
+    "fastMovingRank": 6
+  }
+]

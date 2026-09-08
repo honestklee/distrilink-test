@@ -1,0 +1,72 @@
+[
+  {
+    "id": "OUT-BDG-001",
+    "name": "Toko Sumber Berkah",
+    "owner": "Haji Ahmad",
+    "area": "Bandung Kota",
+    "category": "Grosir Sembako",
+    "creditLimitRp": 25000000,
+    "currentReceivableRp": 6800000,
+    "paymentCompliancePercent": 98,
+    "riskGrade": "A",
+    "avgMonthlyOrderRp": 18500000,
+    "lastOrderDate": "07 Sep 2026",
+    "auditStatus": "Clean"
+  },
+  {
+    "id": "OUT-BDG-002",
+    "name": "Warung Bu Siti",
+    "owner": "Siti Rohayati",
+    "area": "Bandung Barat",
+    "category": "Toko Kelontong",
+    "creditLimitRp": 10000000,
+    "currentReceivableRp": 4200000,
+    "paymentCompliancePercent": 92,
+    "riskGrade": "A",
+    "avgMonthlyOrderRp": 8200000,
+    "lastOrderDate": "06 Sep 2026",
+    "auditStatus": "Clean"
+  },
+  {
+    "id": "OUT-BDG-003",
+    "name": "Minimarket Barokah Mandiri",
+    "owner": "Rudi Hartono",
+    "area": "Cimahi",
+    "category": "Minimarket Mandiri",
+    "creditLimitRp": 30000000,
+    "currentReceivableRp": 28500000,
+    "paymentCompliancePercent": 74,
+    "riskGrade": "B",
+    "avgMonthlyOrderRp": 22000000,
+    "lastOrderDate": "05 Sep 2026",
+    "auditStatus": "Perlu Follow-up"
+  },
+  {
+    "id": "OUT-BDG-004",
+    "name": "Toko Harapan Jaya",
+    "owner": "Bambang Sudiro",
+    "area": "Soreang",
+    "category": "Grosir Sembako",
+    "creditLimitRp": 20000000,
+    "currentReceivableRp": 19800000,
+    "paymentCompliancePercent": 68,
+    "riskGrade": "C",
+    "avgMonthlyOrderRp": 14500000,
+    "lastOrderDate": "01 Sep 2026",
+    "auditStatus": "Over Limit"
+  },
+  {
+    "id": "OUT-BDG-005",
+    "name": "Kios Rezeki Baru",
+    "owner": "Hj. Aminah",
+    "area": "Bandung Timur",
+    "category": "Toko Kelontong",
+    "creditLimitRp": 8000000,
+    "currentReceivableRp": 1500000,
+    "paymentCompliancePercent": 96,
+    "riskGrade": "A",
+    "avgMonthlyOrderRp": 6700000,
+    "lastOrderDate": "04 Sep 2026",
+    "auditStatus": "Clean"
+  }
+]

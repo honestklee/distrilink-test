@@ -1,0 +1,62 @@
+[
+  {
+    "id": "PRD-001",
+    "name": "Minyak Goreng Rose Brand 2L",
+    "category": "Sembako",
+    "price": 34000,
+    "stock": 140,
+    "unit": "pouch",
+    "promo": {
+      "type": "b5g1",
+      "label": "Beli 5 Gratis 1"
+    }
+  },
+  {
+    "id": "PRD-002",
+    "name": "Beras Premium Pandan Wangi 5kg",
+    "category": "Sembako",
+    "price": 75000,
+    "stock": 85,
+    "unit": "sak"
+  },
+  {
+    "id": "PRD-003",
+    "name": "Kopi Kapal Api Special Mix (1 Renteng)",
+    "category": "Minuman",
+    "price": 18500,
+    "stock": 220,
+    "unit": "renteng",
+    "promo": {
+      "type": "discount",
+      "label": "Hemat 5%"
+    }
+  },
+  {
+    "id": "PRD-004",
+    "name": "Susu Ultra Milk UHT 1L (Plain/Cokelat)",
+    "category": "Minuman",
+    "price": 21000,
+    "stock": 95,
+    "unit": "kotak"
+  },
+  {
+    "id": "PRD-005",
+    "name": "Gula Pasir Gulaku Tebu 1kg",
+    "category": "Sembako",
+    "price": 17500,
+    "stock": 160,
+    "unit": "bungkus"
+  },
+  {
+    "id": "PRD-006",
+    "name": "Teh Botol Sosro Kotak 250ml (Karton isi 24)",
+    "category": "Minuman",
+    "price": 72000,
+    "stock": 60,
+    "unit": "karton",
+    "promo": {
+      "type": "b5g1",
+      "label": "Beli 5 Gratis 1"
+    }
+  }
+]

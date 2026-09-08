@@ -1,0 +1,29 @@
+[
+  {
+    "id": "APV-001",
+    "type": "NOO",
+    "title": "Pendaftaran Outlet Baru: Minimarket Barokah (Cimahi)",
+    "submitter": "Andi Pratama (Sales)",
+    "detail": "Pengecekan geotag GPS telah lolos validasi otomatis 18 meter dari lokasi toko.",
+    "date": "06 Sep 2026 16:30",
+    "status": "pending"
+  },
+  {
+    "id": "APV-002",
+    "type": "Discount",
+    "title": "Diskon Tambahan Grosir Khusus 12% (> Rp 5.000.000)",
+    "submitter": "Budi Santoso (Sales)",
+    "detail": "Pengajuan diskon kuota grosir untuk Toko Sumber Berkah pembelian 80 pouch minyak.",
+    "date": "07 Sep 2026 09:30",
+    "status": "pending"
+  },
+  {
+    "id": "APV-003",
+    "type": "Retur",
+    "title": "Klaim Retur Barang Rusak: Minyak Bocor (2 Pouch)",
+    "submitter": "Siti Rahmawati (Sales)",
+    "detail": "Toko Sumber Berkah meminta penggantian barang lot rusak segel pabrik.",
+    "date": "07 Sep 2026 10:15",
+    "status": "pending"
+  }
+]

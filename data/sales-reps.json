@@ -1,0 +1,41 @@
+[
+  {
+    "id": "SLM-001",
+    "name": "Budi Santoso",
+    "area": "Bandung Kota",
+    "vehicle": "Motor Honda Vario 160",
+    "plateNumber": "D 4521 ABC",
+    "phone": "0812-8877-6655",
+    "batteryLevel": 82,
+    "currentLat": -6.921852,
+    "currentLng": 107.607185,
+    "currentStatus": "Sedang di Toko Sumber Berkah (In-Store)",
+    "lastPing": "1 menit yang lalu"
+  },
+  {
+    "id": "SLM-002",
+    "name": "Siti Rahmawati",
+    "area": "Bandung Barat",
+    "vehicle": "Motor Honda Beat",
+    "plateNumber": "D 3312 XYZ",
+    "phone": "0813-2233-4455",
+    "batteryLevel": 65,
+    "currentLat": -6.868212,
+    "currentLng": 107.498321,
+    "currentStatus": "Perjalanan menuju Warung Bu Siti",
+    "lastPing": "30 detik yang lalu"
+  },
+  {
+    "id": "SLM-003",
+    "name": "Andi Pratama",
+    "area": "Cimahi",
+    "vehicle": "Motor Yamaha NMAX",
+    "plateNumber": "D 6789 KMN",
+    "phone": "0857-9988-1122",
+    "batteryLevel": 91,
+    "currentLat": -6.872341,
+    "currentLng": 107.542119,
+    "currentStatus": "Istirahat / Siap lanjut rute ke-3",
+    "lastPing": "2 menit yang lalu"
+  }
+]
