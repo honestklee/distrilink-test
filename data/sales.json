@@ -1,0 +1,110 @@
+[
+  {
+    "nama_sales": "Dimas Rasyid",
+    "area": "Bandung Kota",
+    "kunjungan_planned": 18,
+    "kunjungan_realisasi": 15,
+    "efektivitas_visit_persen": 83,
+    "total_order_rp": 6880002,
+    "jumlah_order_oos": 2
+  },
+  {
+    "nama_sales": "Siti Aminah",
+    "area": "Bandung Barat",
+    "kunjungan_planned": 20,
+    "kunjungan_realisasi": 20,
+    "efektivitas_visit_persen": 100,
+    "total_order_rp": 9250000,
+    "jumlah_order_oos": 0
+  },
+  {
+    "nama_sales": "Andi Wijaya",
+    "area": "Cimahi",
+    "kunjungan_planned": 15,
+    "kunjungan_realisasi": 10,
+    "efektivitas_visit_persen": 67,
+    "total_order_rp": 4100000,
+    "jumlah_order_oos": 4
+  },
+  {
+    "nama_sales": "Rina Puspita",
+    "area": "Bandung Timur",
+    "kunjungan_planned": 22,
+    "kunjungan_realisasi": 19,
+    "efektivitas_visit_persen": 86,
+    "total_order_rp": 7600000,
+    "jumlah_order_oos": 1
+  },
+  {
+    "nama_sales": "Fajar Nugroho",
+    "area": "Soreang",
+    "kunjungan_planned": 16,
+    "kunjungan_realisasi": 12,
+    "efektivitas_visit_persen": 75,
+    "total_order_rp": 5300000,
+    "jumlah_order_oos": 3
+  },
+  {
+    "nama_sales": "Budi Santoso",
+    "area": "Bandung Kota",
+    "kunjungan_planned": 24,
+    "kunjungan_realisasi": 22,
+    "efektivitas_visit_persen": 92,
+    "total_order_rp": 11450000,
+    "jumlah_order_oos": 1
+  },
+  {
+    "nama_sales": "Dewi Lestari",
+    "area": "Bandung Selatan",
+    "kunjungan_planned": 19,
+    "kunjungan_realisasi": 17,
+    "efektivitas_visit_persen": 89,
+    "total_order_rp": 8300000,
+    "jumlah_order_oos": 0
+  },
+  {
+    "nama_sales": "Hendra Pratama",
+    "area": "Cimahi",
+    "kunjungan_planned": 18,
+    "kunjungan_realisasi": 14,
+    "efektivitas_visit_persen": 78,
+    "total_order_rp": 6200000,
+    "jumlah_order_oos": 2
+  },
+  {
+    "nama_sales": "Maya Kartika",
+    "area": "Sumedang",
+    "kunjungan_planned": 14,
+    "kunjungan_realisasi": 13,
+    "efektivitas_visit_persen": 93,
+    "total_order_rp": 5900000,
+    "jumlah_order_oos": 0
+  },
+  {
+    "nama_sales": "Reza Firmansyah",
+    "area": "Bandung Barat",
+    "kunjungan_planned": 21,
+    "kunjungan_realisasi": 16,
+    "efektivitas_visit_persen": 76,
+    "total_order_rp": 7100000,
+    "jumlah_order_oos": 3
+  },
+  {
+    "nama_sales": "Yulia Anggraini",
+    "area": "Bandung Timur",
+    "kunjungan_planned": 17,
+    "kunjungan_realisasi": 15,
+    "efektivitas_visit_persen": 88,
+    "total_order_rp": 6750000,
+    "jumlah_order_oos": 1
+  },
+  {
+    "nama_sales": "Eko Prasetyo",
+    "area": "Bandung Selatan",
+    "kunjungan_planned": 20,
+    "kunjungan_realisasi": 13,
+    "efektivitas_visit_persen": 65,
+    "total_order_rp": 4800000,
+    "jumlah_order_oos": 5
+  }
+]
