@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ShoppingCart,
   RotateCcw,
@@ -15,7 +15,25 @@ import {
   Package,
   FileCheck,
   Search,
+  Clock,
+  Eye,
+  AlertCircle,
+  FileText,
+  X,
 } from 'lucide-react';
+
+import {
+  CatalogProduct,
+  ReturItem,
+  SalesOrder,
+  getStoredCatalogProducts,
+  getStoredOutletOptions,
+  getStoredReturHistory,
+  getStoredSalesOrders,
+  createReturClaim,
+  recordOrderCheckout,
+  STORAGE_SYNC_EVENT,
+} from '@/lib/storage';
 
 interface OrderReceipt {
   orderId: string;
@@ -25,98 +43,19 @@ interface OrderReceipt {
   mode: string;
   itemCount: number;
   bonusItems: string[];
+  approvalId?: string;
+  status: string;
 }
-
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  stock: number;
-  unit: string;
-  promo?: {
-    type: 'b5g1' | 'discount';
-    label: string;
-  };
-}
-
-const CATALOG_PRODUCTS: Product[] = [
-  {
-    id: 'PRD-001',
-    name: 'Minyak Goreng Rose Brand 2L',
-    category: 'Sembako',
-    price: 34000,
-    stock: 140,
-    unit: 'pouch',
-    promo: {
-      type: 'b5g1',
-      label: 'Beli 5 Gratis 1',
-    },
-  },
-  {
-    id: 'PRD-002',
-    name: 'Beras Premium Pandan Wangi 5kg',
-    category: 'Sembako',
-    price: 75000,
-    stock: 85,
-    unit: 'sak',
-  },
-  {
-    id: 'PRD-003',
-    name: 'Kopi Kapal Api Special Mix (1 Renteng)',
-    category: 'Minuman',
-    price: 18500,
-    stock: 220,
-    unit: 'renteng',
-    promo: {
-      type: 'discount',
-      label: 'Hemat 5%',
-    },
-  },
-  {
-    id: 'PRD-004',
-    name: 'Susu Ultra Milk UHT 1L (Plain/Cokelat)',
-    category: 'Minuman',
-    price: 21000,
-    stock: 95,
-    unit: 'kotak',
-  },
-  {
-    id: 'PRD-005',
-    name: 'Gula Pasir Gulaku Tebu 1kg',
-    category: 'Sembako',
-    price: 17500,
-    stock: 160,
-    unit: 'bungkus',
-  },
-  {
-    id: 'PRD-006',
-    name: 'Teh Botol Sosro Kotak 250ml (Karton isi 24)',
-    category: 'Minuman',
-    price: 72000,
-    stock: 60,
-    unit: 'karton',
-    promo: {
-      type: 'b5g1',
-      label: 'Beli 5 Gratis 1',
-    },
-  },
-];
-
-const OUTLETS = [
-  'Toko Sumber Berkah - Bandung Kota',
-  'Warung Bu Siti - Bandung Barat',
-  'Minimarket Barokah - Cimahi',
-  'Toko Kelontong Sejahtera - Bandung Timur',
-  'Toko Harapan Jaya - Soreang',
-];
 
 export default function TakingOrderPage() {
-  const [activeTab, setActiveTab] = useState<'order' | 'retur'>('order');
+  const [activeTab, setActiveTab] = useState<'order' | 'retur' | 'history'>('order');
   const [isOnline, setIsOnline] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedOutlet, setSelectedOutlet] = useState(OUTLETS[0]);
+  const [historySearch, setHistorySearch] = useState('');
+  const [outletOptions, setOutletOptions] = useState<string[]>([]);
+  const [selectedOutlet, setSelectedOutlet] = useState('');
   const [paymentTerm, setPaymentTerm] = useState('COD');
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
   
   // Cart state: Record<productId, quantity>
   const [cart, setCart] = useState<Record<string, number>>({
@@ -126,34 +65,33 @@ export default function TakingOrderPage() {
 
   const [orderSuccessModal, setOrderSuccessModal] = useState(false);
   const [lastOrderInfo, setLastOrderInfo] = useState<OrderReceipt | null>(null);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<SalesOrder | null>(null);
 
   // Retur State
-  const [returProduct, setReturProduct] = useState(CATALOG_PRODUCTS[0].id);
+  const [returProduct, setReturProduct] = useState('PRD-001');
   const [returQty, setReturQty] = useState(1);
   const [returReason, setReturReason] = useState('Kemasan Rusak / Bocor');
   const [returNotes, setReturNotes] = useState('');
   const [returSuccessMsg, setReturSuccessMsg] = useState('');
+  const [returHistory, setReturHistory] = useState<ReturItem[]>([]);
 
-  const [returHistory, setReturHistory] = useState([
-    {
-      id: 'RET-2026-001',
-      outlet: 'Toko Sumber Berkah',
-      product: 'Minyak Goreng Rose Brand 2L',
-      qty: 2,
-      reason: 'Kemasan Bocor',
-      date: '07 Sep 2026',
-      status: 'Disetujui Supervisor',
-    },
-    {
-      id: 'RET-2026-002',
-      outlet: 'Warung Bu Siti',
-      product: 'Susu Ultra Milk UHT 1L',
-      qty: 4,
-      reason: 'Mendekati Kedaluwarsa',
-      date: '06 Sep 2026',
-      status: 'Selesai Diganti',
-    },
-  ]);
+  useEffect(() => {
+    const syncData = () => {
+      const opts = getStoredOutletOptions();
+      setOutletOptions(opts);
+      if (!selectedOutlet && opts.length > 0) {
+        setSelectedOutlet(opts[0]);
+      }
+      setCatalogProducts(getStoredCatalogProducts());
+      setReturHistory(getStoredReturHistory());
+      setSalesOrders(getStoredSalesOrders());
+    };
+
+    syncData();
+    window.addEventListener(STORAGE_SYNC_EVENT, syncData);
+    return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
+  }, [selectedOutlet]);
 
   // Cart operations
   const updateQty = (id: string, delta: number) => {
@@ -183,7 +121,7 @@ export default function TakingOrderPage() {
     const bonusItems: string[] = [];
 
     Object.entries(cart).forEach(([id, qty]) => {
-      const product = CATALOG_PRODUCTS.find((p) => p.id === id);
+      const product = catalogProducts.find((p) => p.id === id);
       if (product) {
         subtotal += product.price * qty;
 
@@ -222,18 +160,42 @@ export default function TakingOrderPage() {
       bonusItems,
       grandTotal,
     };
-  }, [cart]);
+  }, [cart, catalogProducts]);
 
   const handleCheckout = () => {
     const orderId = `PO-SAP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const detailedItems = Object.entries(cart).map(([productId, qty]) => {
+      const p = catalogProducts.find((item) => item.id === productId);
+      return {
+        productId,
+        productName: p?.name || productId,
+        qty,
+        price: p?.price || 0,
+        subtotal: (p?.price || 0) * qty,
+        unit: p?.unit || 'Pcs',
+      };
+    });
+
+    const { newOrder, newApproval } = recordOrderCheckout({
+      orderId,
+      outletName: selectedOutlet,
+      paymentTerm,
+      grandTotal: orderSummary.grandTotal,
+      items: detailedItems,
+      bonusItems: orderSummary.bonusItems,
+      notes: orderSummary.promoReason || 'Pesanan diterbitkan via SFA Taking Order',
+    });
+
     setLastOrderInfo({
       orderId,
       outlet: selectedOutlet,
       paymentTerm,
       total: orderSummary.grandTotal,
-      mode: isOnline ? 'Online (Realtime SAP Sync)' : 'Offline (Tersimpan di Buffer Lokal)',
+      mode: isOnline ? 'Online (Terkirim ke Meja Supervisi)' : 'Offline (Tersimpan di Buffer Lokal)',
       itemCount: Object.values(cart).reduce((a, b) => a + b, 0),
       bonusItems: orderSummary.bonusItems,
+      approvalId: newApproval?.id,
+      status: newOrder.status,
     });
     setOrderSuccessModal(true);
     setCart({});
@@ -241,22 +203,26 @@ export default function TakingOrderPage() {
 
   const handleCreateRetur = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetProd = CATALOG_PRODUCTS.find((p) => p.id === returProduct);
-    const newRetur = {
+    const targetProd = catalogProducts.find((p) => p.id === returProduct);
+    const newRetur: ReturItem = {
       id: `RET-2026-00${returHistory.length + 1}`,
       outlet: selectedOutlet.split(' - ')[0],
       product: targetProd?.name || 'Produk',
       qty: returQty,
       reason: returReason,
-      date: '07 Sep 2026',
+      date: '08 Sep 2026',
       status: 'Menunggu Verifikasi',
     };
-    setReturHistory([newRetur, ...returHistory]);
-    setReturSuccessMsg(`Pengajuan retur ${newRetur.id} berhasil dicatat!`);
-    setTimeout(() => setReturSuccessMsg(''), 4000);
+
+    const approval = createReturClaim(newRetur);
+    setReturSuccessMsg(
+      `Pengajuan retur ${newRetur.id} berhasil dicatat dan permintaan otorisasi ${approval.id} dikirim ke Meja Supervisi!`
+    );
+    setReturNotes('');
+    setTimeout(() => setReturSuccessMsg(''), 5000);
   };
 
-  const filteredProducts = CATALOG_PRODUCTS.filter(
+  const filteredProducts = catalogProducts.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.category.toLowerCase().includes(search.toLowerCase())
@@ -315,30 +281,47 @@ export default function TakingOrderPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab('order')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'order'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <ShoppingCart className="w-4 h-4" />
-          <span>Form Taking Order (Pemesanan)</span>
+          <span>1. Form Taking Order (Pemesanan)</span>
         </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('retur')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'retur'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <RotateCcw className="w-4 h-4" />
-          <span>Form Retur Barang & Klaim</span>
+          <span>2. Form Retur Barang & Klaim</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeTab === 'history'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileCheck className="w-4 h-4" />
+          <span>3. Riwayat Pesanan (PO SAP)</span>
+          <span className="px-1.5 py-0.2 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
+            {salesOrders.length}
+          </span>
         </button>
       </div>
 
@@ -374,7 +357,7 @@ export default function TakingOrderPage() {
                 onChange={(e) => setSelectedOutlet(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-blue-500 outline-none"
               >
-                {OUTLETS.map((o) => (
+                {outletOptions.map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>
@@ -509,7 +492,7 @@ export default function TakingOrderPage() {
                 ) : (
                   <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
                     {Object.entries(cart).map(([id, qty]) => {
-                      const prod = CATALOG_PRODUCTS.find((p) => p.id === id);
+                      const prod = catalogProducts.find((p) => p.id === id);
                       if (!prod) return null;
                       const itemTotal = prod.price * qty;
 
@@ -627,7 +610,7 @@ export default function TakingOrderPage() {
                   onChange={(e) => setSelectedOutlet(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                 >
-                  {OUTLETS.map((o) => (
+                  {outletOptions.map((o) => (
                     <option key={o} value={o}>
                       {o}
                     </option>
@@ -642,7 +625,7 @@ export default function TakingOrderPage() {
                   onChange={(e) => setReturProduct(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                 >
-                  {CATALOG_PRODUCTS.map((p) => (
+                  {catalogProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.unit})
                     </option>
@@ -739,18 +722,203 @@ export default function TakingOrderPage() {
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* TAB 3: RIWAYAT PESANAN (PO SAP) */}
+      {/* ========================================================================= */}
+      {activeTab === 'history' && (
+        <div className="space-y-5">
+          {/* KPI Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Total Pesanan Diterbitkan</span>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">{salesOrders.length} PO</p>
+              <p className="text-[11px] text-slate-400 mt-1">Tercatat di SAP Buffer Lokal</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Total Nilai Order</span>
+              <p className="text-2xl font-extrabold text-blue-600 mt-1">
+                Rp {salesOrders.reduce((a, b) => a + b.totalRp, 0).toLocaleString('id-ID')}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">Omset sales taking order</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Menunggu Otorisasi Supervisor</span>
+              <p className="text-2xl font-extrabold text-amber-600 mt-1">
+                {salesOrders.filter((o) => o.status === 'Menunggu Persetujuan Supervisor').length} PO
+              </p>
+              <p className="text-[11px] text-amber-700 mt-1">Di Meja Persetujuan Supervisi</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Disetujui & Siap Kirim</span>
+              <p className="text-2xl font-extrabold text-emerald-600 mt-1">
+                {salesOrders.filter((o) => o.status === 'Disetujui & Siap Kirim').length} PO
+              </p>
+              <p className="text-[11px] text-emerald-700 mt-1">Stok terpotong & surat jalan siap</p>
+            </div>
+          </div>
+
+          {/* Search bar & Notice */}
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-blue-900">
+              <FileCheck className="w-5 h-5 text-blue-600 shrink-0" />
+              <div>
+                <p className="font-bold">Status Otorisasi Pesanan SAP Terhubung Real-Time</p>
+                <p className="text-blue-700 text-[11px]">
+                  Saat pesanan baru dibuat, tiket otorisasi otomatis muncul di <strong>Meja Persetujuan Supervisi</strong>. Ketika Supervisor menyetujui, status di bawah akan otomatis berubah menjadi <strong>&quot;Disetujui & Siap Kirim&quot;</strong> dan stok gudang terpotong.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari nomor PO atau nama toko..."
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-blue-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Orders Table */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <span>Daftar Transaksi Pesanan Taking Order ({salesOrders.length})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Lacak status otorisasi supervisi, rincian barang pesanan, dan termin pembayaran
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 rounded-full text-slate-600">
+                Live LocalStorage
+              </span>
+            </div>
+
+            {salesOrders.length === 0 ? (
+              <div className="p-10 text-center text-xs text-slate-400">
+                Belum ada pesanan yang diterbitkan. Silakan buat pesanan di tab Form Taking Order.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {salesOrders
+                  .filter((order) => {
+                    const matchSearch =
+                      order.id.toLowerCase().includes(historySearch.toLowerCase()) ||
+                      order.outletName.toLowerCase().includes(historySearch.toLowerCase());
+                    return matchSearch;
+                  })
+                  .map((order) => {
+                    const isPending = order.status === 'Menunggu Persetujuan Supervisor';
+                    const isApproved = order.status === 'Disetujui & Siap Kirim';
+                    const isRejected = order.status === 'Ditolak Supervisor';
+
+                    return (
+                      <div key={order.id} className="p-4 hover:bg-slate-50/70 transition space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-extrabold text-blue-600 text-sm">{order.id}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="font-bold text-slate-900 text-xs">{order.outletName}</span>
+                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600 font-medium">
+                              Termin: {order.paymentTerm}
+                            </span>
+                            {order.approvalId && (
+                              <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-[10px] font-semibold">
+                                Tiket: {order.approvalId}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                isPending
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : isApproved
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                            >
+                              {isPending && <Clock className="w-3 h-3 text-amber-600 animate-pulse" />}
+                              {isApproved && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                              {isRejected && <AlertCircle className="w-3 h-3 text-rose-600" />}
+                              <span>{order.status}</span>
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderForDetail(order)}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3 text-blue-600" />
+                              <span>Detail PO</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Order Items Snapshot */}
+                        <div className="bg-slate-50/80 p-3 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+                          <div className="flex justify-between font-semibold text-slate-600 text-[11px] pb-1 border-b border-slate-200">
+                            <span>Item Produk ({order.items.length})</span>
+                            <span>Subtotal</span>
+                          </div>
+                          {order.items.map((it, idx) => (
+                            <div key={idx} className="flex justify-between text-slate-700 text-xs">
+                              <span>
+                                {it.productName} ({it.qty} {it.unit})
+                              </span>
+                              <span className="font-semibold text-slate-900">
+                                Rp {it.subtotal.toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                          ))}
+
+                          {order.bonusItems && order.bonusItems.length > 0 && (
+                            <div className="pt-1 text-[11px] text-emerald-700 font-medium">
+                              🎁 Bonus Promo: {order.bonusItems.join(', ')}
+                            </div>
+                          )}
+
+                          <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-slate-900">
+                            <span>Total Tagihan:</span>
+                            <span className="text-blue-700 text-sm">
+                              Rp {order.totalRp.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span>Salesman: {order.salesName}</span>
+                          <span>{order.date} • {order.time}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Order Success Receipt Modal */}
       {orderSuccessModal && lastOrderInfo && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full mx-auto">
-              <CheckCircle2 className="w-7 h-7" />
+            <div className="flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-full mx-auto">
+              <FileCheck className="w-7 h-7" />
             </div>
 
             <div className="text-center">
-              <h3 className="font-extrabold text-slate-900 text-lg">Pesanan Berhasil Dicatat!</h3>
+              <h3 className="font-extrabold text-slate-900 text-lg">Pesanan Berhasil Diterbitkan!</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Taking order telah terverifikasi ke sistem Distrilink SAP.
+                Terkirim ke antrean Meja Persetujuan Supervisi untuk otorisasi rilis gudang.
               </p>
             </div>
 
@@ -764,27 +932,139 @@ export default function TakingOrderPage() {
                 <span className="font-semibold text-slate-800">{lastOrderInfo.outlet}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Mode Sinkronisasi:</span>
-                <span className="font-semibold text-emerald-700">{lastOrderInfo.mode}</span>
+                <span className="text-slate-500">Status Otorisasi:</span>
+                <span className="font-bold text-amber-600 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{lastOrderInfo.status}</span>
+                </span>
               </div>
+              {lastOrderInfo.approvalId && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tiket Persetujuan:</span>
+                  <span className="font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                    {lastOrderInfo.approvalId}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Termin Bayar:</span>
                 <span className="font-semibold text-slate-800">{lastOrderInfo.paymentTerm}</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-slate-200 font-extrabold text-slate-900">
                 <span>Total Nilai Pesanan:</span>
-                <span className="text-blue-600">
+                <span className="text-blue-600 text-sm">
                   Rp {lastOrderInfo.total.toLocaleString('id-ID')}
                 </span>
               </div>
             </div>
 
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 space-y-1">
+              <p className="font-bold">Info Alur Pesanan:</p>
+              <p>
+                Pesanan ini telah tercatat di <strong>Tab 3 (Riwayat Pesanan)</strong> dan otomatis muncul di <strong>Meja Persetujuan Supervisi</strong>. Begitu Supervisor mengklik &quot;Setujui&quot;, status pesanan berubah menjadi &quot;Disetujui & Siap Kirim&quot; dan stok gudang akan terpotong.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOrderSuccessModal(false);
+                  setActiveTab('history');
+                }}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Lihat Riwayat Pesanan</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOrderSuccessModal(false)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail PO Modal */}
+      {selectedOrderForDetail && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">{selectedOrderForDetail.id}</h3>
+                  <p className="text-xs text-slate-500">{selectedOrderForDetail.outletName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderForDetail(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-2xl">
+              <div>
+                <span className="text-slate-400 block text-[10px]">Status Otorisasi:</span>
+                <span className="font-bold text-slate-800">{selectedOrderForDetail.status}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Termin Pembayaran:</span>
+                <span className="font-bold text-slate-800">{selectedOrderForDetail.paymentTerm}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Waktu Transaksi:</span>
+                <span className="font-medium text-slate-700">{selectedOrderForDetail.date} • {selectedOrderForDetail.time}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Salesman PIC:</span>
+                <span className="font-medium text-slate-700">{selectedOrderForDetail.salesName}</span>
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-800">Rincian Barang Pesanan:</p>
+              <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-100 text-xs">
+                {selectedOrderForDetail.items.map((it, idx) => (
+                  <div key={idx} className="p-2.5 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-slate-900">{it.productName}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {it.qty} {it.unit} @ Rp {it.price.toLocaleString('id-ID')}
+                      </p>
+                    </div>
+                    <span className="font-bold text-slate-800">
+                      Rp {it.subtotal.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+              <span className="font-extrabold text-slate-900 text-xs">Total Tagihan Pesanan:</span>
+              <span className="text-base font-extrabold text-blue-600">
+                Rp {selectedOrderForDetail.totalRp.toLocaleString('id-ID')}
+              </span>
+            </div>
+
             <button
               type="button"
-              onClick={() => setOrderSuccessModal(false)}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition cursor-pointer"
+              onClick={() => setSelectedOrderForDetail(null)}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
             >
-              Tutup & Buat Pesanan Baru
+              Tutup Rincian
             </button>
           </div>
         </div>

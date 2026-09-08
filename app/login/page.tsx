@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { login } from '@/services/auth.services';
+import demoAccounts from '@/data/demo-accounts.json';
 import {
   User,
   Lock,
@@ -26,8 +27,8 @@ interface AuthErrorInfo {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('emilys');
-  const [password, setPassword] = useState('emilyspass');
+  const [username, setUsername] = useState(demoAccounts[0]?.username || 'emilys');
+  const [password, setPassword] = useState(demoAccounts[0]?.password || 'emilyspass');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<AuthErrorInfo | null>(null);
   const [hasCredentialError, setHasCredentialError] = useState(false);
@@ -339,30 +340,17 @@ export default function LoginPage() {
                   <span className="text-[10px] text-slate-400">POST /auth/login</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('emilys', 'emilyspass')}
-                    className="px-2 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-medium rounded-lg border border-slate-200 hover:border-blue-300 transition shadow-2xs text-left"
-                  >
-                    <span className="block font-semibold text-[11px]">Emily J.</span>
-                    <span className="block text-[10px] text-slate-400">emilys</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('michaelw', 'michaelwpass')}
-                    className="px-2 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-medium rounded-lg border border-slate-200 hover:border-blue-300 transition shadow-2xs text-left"
-                  >
-                    <span className="block font-semibold text-[11px]">Michael W.</span>
-                    <span className="block text-[10px] text-slate-400">michaelw</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('sophiab', 'sophiabpass')}
-                    className="px-2 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-medium rounded-lg border border-slate-200 hover:border-blue-300 transition shadow-2xs text-left"
-                  >
-                    <span className="block font-semibold text-[11px]">Sophia B.</span>
-                    <span className="block text-[10px] text-slate-400">sophiab</span>
-                  </button>
+                  {demoAccounts.map((account) => (
+                    <button
+                      key={account.username}
+                      type="button"
+                      onClick={() => handleFillDemo(account.username, account.password)}
+                      className="px-2 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-medium rounded-lg border border-slate-200 hover:border-blue-300 transition shadow-2xs text-left cursor-pointer"
+                    >
+                      <span className="block font-semibold text-[11px]">{account.name}</span>
+                      <span className="block text-[10px] text-slate-400">{account.username}</span>
+                    </button>
+                  ))}
                 </div>
                 <p className="text-[10px] text-slate-500">
                   Klik akun di atas untuk mengisi kredensial valid secara instan.

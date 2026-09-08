@@ -27,243 +27,55 @@ import {
   ShieldCheck,
   Check,
   X,
+  ShoppingCart,
+  FileText,
+  Clock,
 } from 'lucide-react';
 
 const SESSION_KEY = 'user_session';
 const emptySubscribe = () => () => {};
 
-// Supervisor: Outlet Profiling Data
-interface OutletProfile {
-  id: string;
-  name: string;
-  owner: string;
-  area: string;
-  category: string;
-  creditLimitRp: number;
-  currentReceivableRp: number;
-  paymentCompliancePercent: number;
-  riskGrade: 'A' | 'B' | 'C';
-  avgMonthlyOrderRp: number;
-  lastOrderDate: string;
-  auditStatus: 'Clean' | 'Perlu Follow-up' | 'Over Limit';
-}
-
-const OUTLET_PROFILES_DATA: OutletProfile[] = [
-  {
-    id: 'OUT-BDG-001',
-    name: 'Toko Sumber Berkah',
-    owner: 'Haji Ahmad',
-    area: 'Bandung Kota',
-    category: 'Grosir Sembako',
-    creditLimitRp: 25000000,
-    currentReceivableRp: 6800000,
-    paymentCompliancePercent: 98,
-    riskGrade: 'A',
-    avgMonthlyOrderRp: 18500000,
-    lastOrderDate: '07 Sep 2026',
-    auditStatus: 'Clean',
-  },
-  {
-    id: 'OUT-BDG-002',
-    name: 'Warung Bu Siti',
-    owner: 'Siti Rohayati',
-    area: 'Bandung Barat',
-    category: 'Toko Kelontong',
-    creditLimitRp: 10000000,
-    currentReceivableRp: 4200000,
-    paymentCompliancePercent: 92,
-    riskGrade: 'A',
-    avgMonthlyOrderRp: 8200000,
-    lastOrderDate: '06 Sep 2026',
-    auditStatus: 'Clean',
-  },
-  {
-    id: 'OUT-BDG-003',
-    name: 'Minimarket Barokah Mandiri',
-    owner: 'Rudi Hartono',
-    area: 'Cimahi',
-    category: 'Minimarket Mandiri',
-    creditLimitRp: 30000000,
-    currentReceivableRp: 28500000,
-    paymentCompliancePercent: 74,
-    riskGrade: 'B',
-    avgMonthlyOrderRp: 22000000,
-    lastOrderDate: '05 Sep 2026',
-    auditStatus: 'Perlu Follow-up',
-  },
-  {
-    id: 'OUT-BDG-004',
-    name: 'Toko Harapan Jaya',
-    owner: 'Bambang Sudiro',
-    area: 'Soreang',
-    category: 'Grosir Sembako',
-    creditLimitRp: 20000000,
-    currentReceivableRp: 19800000,
-    paymentCompliancePercent: 68,
-    riskGrade: 'C',
-    avgMonthlyOrderRp: 14500000,
-    lastOrderDate: '01 Sep 2026',
-    auditStatus: 'Over Limit',
-  },
-  {
-    id: 'OUT-BDG-005',
-    name: 'Kios Rezeki Baru',
-    owner: 'Hj. Aminah',
-    area: 'Bandung Timur',
-    category: 'Toko Kelontong',
-    creditLimitRp: 8000000,
-    currentReceivableRp: 1500000,
-    paymentCompliancePercent: 96,
-    riskGrade: 'A',
-    avgMonthlyOrderRp: 6700000,
-    lastOrderDate: '04 Sep 2026',
-    auditStatus: 'Clean',
-  },
-];
-
-// Supervisor: Warehouse & Depo Stock Monitoring Data
-interface WarehouseStockItem {
-  sku: string;
-  name: string;
-  category: string;
-  depoStock: number;
-  safetyStock: number;
-  reorderPoint: number;
-  unit: string;
-  status: 'Aman' | 'Kritis' | 'Habis';
-  daysOfInventory: number;
-  fastMovingRank: number;
-}
-
-const WAREHOUSE_STOCKS_DATA: WarehouseStockItem[] = [
-  {
-    sku: 'SKU-001',
-    name: 'Minyak Goreng Rose Brand 2L',
-    category: 'Sembako',
-    depoStock: 140,
-    safetyStock: 50,
-    reorderPoint: 80,
-    unit: 'pouch',
-    status: 'Aman',
-    daysOfInventory: 12,
-    fastMovingRank: 1,
-  },
-  {
-    sku: 'SKU-002',
-    name: 'Beras Premium Pandan Wangi 5kg',
-    category: 'Sembako',
-    depoStock: 0,
-    safetyStock: 30,
-    reorderPoint: 45,
-    unit: 'sak',
-    status: 'Habis',
-    daysOfInventory: 0,
-    fastMovingRank: 2,
-  },
-  {
-    sku: 'SKU-003',
-    name: 'Kopi Kapal Api Special Mix (Renteng)',
-    category: 'Minuman',
-    depoStock: 220,
-    safetyStock: 60,
-    reorderPoint: 100,
-    unit: 'renteng',
-    status: 'Aman',
-    daysOfInventory: 18,
-    fastMovingRank: 3,
-  },
-  {
-    sku: 'SKU-004',
-    name: 'Susu Ultra Milk UHT 1L Full Cream',
-    category: 'Minuman',
-    depoStock: 0,
-    safetyStock: 25,
-    reorderPoint: 40,
-    unit: 'kotak',
-    status: 'Habis',
-    daysOfInventory: 0,
-    fastMovingRank: 4,
-  },
-  {
-    sku: 'SKU-005',
-    name: 'Gula Pasir Gulaku Tebu 1kg',
-    category: 'Sembako',
-    depoStock: 8,
-    safetyStock: 20,
-    reorderPoint: 35,
-    unit: 'bungkus',
-    status: 'Kritis',
-    daysOfInventory: 2,
-    fastMovingRank: 5,
-  },
-  {
-    sku: 'SKU-006',
-    name: 'Teh Botol Sosro Kotak 250ml (Karton)',
-    category: 'Minuman',
-    depoStock: 60,
-    safetyStock: 20,
-    reorderPoint: 30,
-    unit: 'karton',
-    status: 'Aman',
-    daysOfInventory: 9,
-    fastMovingRank: 6,
-  },
-];
-
-// Supervisor Approval Requests
-interface ApprovalItem {
-  id: string;
-  type: 'NOO' | 'Discount' | 'Retur';
-  title: string;
-  submitter: string;
-  detail: string;
-  date: string;
-  status: 'pending' | 'approved' | 'rejected';
-}
-
-const INITIAL_APPROVALS: ApprovalItem[] = [
-  {
-    id: 'APV-001',
-    type: 'NOO',
-    title: 'Pendaftaran Outlet Baru: Minimarket Barokah (Cimahi)',
-    submitter: 'Andi Pratama (Sales)',
-    detail: 'Pengecekan geotag GPS telah lolos validasi otomatis 18 meter dari lokasi toko.',
-    date: '06 Sep 2026 16:30',
-    status: 'pending',
-  },
-  {
-    id: 'APV-002',
-    type: 'Discount',
-    title: 'Diskon Tambahan Grosir Khusus 12% (> Rp 5.000.000)',
-    submitter: 'Budi Santoso (Sales)',
-    detail: 'Pengajuan diskon kuota grosir untuk Toko Sumber Berkah pembelian 80 pouch minyak.',
-    date: '07 Sep 2026 09:30',
-    status: 'pending',
-  },
-  {
-    id: 'APV-003',
-    type: 'Retur',
-    title: 'Klaim Retur Barang Rusak: Minyak Bocor (2 Pouch)',
-    submitter: 'Siti Rahmawati (Sales)',
-    detail: 'Toko Sumber Berkah meminta penggantian barang lot rusak segel pabrik.',
-    date: '07 Sep 2026 10:15',
-    status: 'pending',
-  },
-];
+import {
+  OutletProfile,
+  WarehouseStockItem,
+  ApprovalItem,
+  SalesOrder,
+  getStoredApprovals,
+  getStoredOutletProfiles,
+  getStoredWarehouseStocks,
+  getStoredSalesOrders,
+  updateApprovalStatus,
+  STORAGE_SYNC_EVENT,
+} from '@/lib/storage';
 
 export default function DashboardPage() {
   const router = useRouter();
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
-  // Supervisor Active Tab: 'performance' | 'outlets' | 'stock' | 'approvals'
+  // Supervisor Active Tab: 'performance' | 'outlets' | 'stock' | 'approvals' | 'orders'
   const [activeSupervisorTab, setActiveSupervisorTab] = useState<
-    'performance' | 'outlets' | 'stock' | 'approvals'
+    'performance' | 'outlets' | 'stock' | 'approvals' | 'orders'
   >('performance');
 
   const [search, setSearch] = useState('');
   const [selectedArea, setSelectedArea] = useState('All');
-  const [approvals, setApprovals] = useState<ApprovalItem[]>(INITIAL_APPROVALS);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [outletProfiles, setOutletProfiles] = useState<OutletProfile[]>([]);
+  const [warehouseStocks, setWarehouseStocks] = useState<WarehouseStockItem[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [toastMsg, setToastMsg] = useState('');
+
+  useEffect(() => {
+    const syncData = () => {
+      setApprovals(getStoredApprovals());
+      setOutletProfiles(getStoredOutletProfiles());
+      setWarehouseStocks(getStoredWarehouseStocks());
+      setSalesOrders(getStoredSalesOrders());
+    };
+    syncData();
+    window.addEventListener(STORAGE_SYNC_EVENT, syncData);
+    return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
+  }, []);
 
   const salesList: SalesData[] = salesRaw;
 
@@ -321,12 +133,10 @@ export default function DashboardPage() {
   };
 
   const handleApprovalAction = (id: string, action: 'approved' | 'rejected') => {
-    setApprovals((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: action } : item))
-    );
+    updateApprovalStatus(id, action);
     const text = action === 'approved' ? 'disetujui' : 'ditolak';
-    setToastMsg(`Pengajuan ${id} berhasil ${text} oleh Supervisor!`);
-    setTimeout(() => setToastMsg(''), 4000);
+    setToastMsg(`Pengajuan ${id} berhasil ${text} oleh Supervisor dan data terkait telah disinkronkan!`);
+    setTimeout(() => setToastMsg(''), 4500);
   };
 
   if (!isClient || !user) {
@@ -429,6 +239,22 @@ export default function DashboardPage() {
               {approvals.filter((a) => a.status === 'pending').length}
             </span>
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSupervisorTab('orders')}
+          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeSupervisorTab === 'orders'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <ShoppingCart className="w-4 h-4" />
+          <span>5. Monitoring Pesanan Masuk (Live PO SAP)</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700">
+            {salesOrders.length}
+          </span>
         </button>
       </div>
 
@@ -566,20 +392,41 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total Limit Kredit Diberikan</span>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1">Rp 93.000.000</p>
-              <p className="text-[11px] text-emerald-600 mt-1">Terbagi ke 5 Outlet Binaan</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                Rp {outletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0).toLocaleString('id-ID')}
+              </p>
+              <p className="text-[11px] text-emerald-600 mt-1">Terbagi ke {outletProfiles.length} Outlet Binaan</p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total Piutang Berjalan (Outstanding)</span>
-              <p className="text-2xl font-extrabold text-blue-600 mt-1">Rp 60.800.000</p>
-              <p className="text-[11px] text-slate-500 mt-1">Utilisasi Kredit: 65.3% (Aman)</p>
+              <p className="text-2xl font-extrabold text-blue-600 mt-1">
+                Rp {outletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0).toLocaleString('id-ID')}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Utilisasi: {outletProfiles.length > 0 ? (
+                  (
+                    (outletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0) /
+                      (outletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0) || 1)) *
+                    100
+                  ).toFixed(1)
+                ) : 0}% (Aman)
+              </p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Kepatuhan Pembayaran Rata-rata</span>
-              <p className="text-2xl font-extrabold text-emerald-600 mt-1">85.6%</p>
-              <p className="text-[11px] text-amber-600 mt-1">1 Toko Mendekati Batas Plafon</p>
+              <p className="text-2xl font-extrabold text-emerald-600 mt-1">
+                {outletProfiles.length > 0
+                  ? (
+                      outletProfiles.reduce((acc, c) => acc + c.paymentCompliancePercent, 0) /
+                      outletProfiles.length
+                    ).toFixed(1)
+                  : 0}%
+              </p>
+              <p className="text-[11px] text-amber-600 mt-1">
+                {outletProfiles.filter((p) => p.auditStatus === 'Over Limit').length} Toko Melebihi Plafon
+              </p>
             </div>
           </div>
 
@@ -589,7 +436,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-600" />
-                  <span>Daftar Profil Finansial & Audit Outlet</span>
+                  <span>Daftar Profil Finansial & Audit Outlet ({outletProfiles.length})</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Supervisor memantau batas limit kredit, riwayat piutang berjalan, dan tingkat kepatuhan tempo toko
@@ -614,7 +461,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {OUTLET_PROFILES_DATA.map((item) => {
+                  {outletProfiles.map((item) => {
                     const isOverLimit = item.auditStatus === 'Over Limit';
                     const isWarning = item.auditStatus === 'Perlu Follow-up';
                     return (
@@ -689,20 +536,30 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total SKU Terdaftar di Depo</span>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1">6 Produk FMCG</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">{warehouseStocks.length} Produk FMCG</p>
               <p className="text-[11px] text-slate-400 mt-1">Gudang Distribusi Utama Bandung</p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Produk Out of Stock (OOS)</span>
-              <p className="text-2xl font-extrabold text-rose-600 mt-1">2 SKU</p>
-              <p className="text-[11px] text-rose-600 mt-1">Beras Pandan Wangi & Susu Ultra Milk</p>
+              <p className="text-2xl font-extrabold text-rose-600 mt-1">
+                {warehouseStocks.filter((s) => s.status === 'Habis').length} SKU
+              </p>
+              <p className="text-[11px] text-rose-600 mt-1">
+                {warehouseStocks.filter((s) => s.status === 'Habis').map((s) => s.name.split(' ')[0]).join(', ') || 'Semua Produk Tersedia'}
+              </p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">SKU Mendekati Reorder Point</span>
-              <p className="text-2xl font-extrabold text-amber-600 mt-1">1 SKU</p>
-              <p className="text-[11px] text-amber-700 mt-1">Gula Pasir Gulaku (Sisa 8 bungkus)</p>
+              <p className="text-2xl font-extrabold text-amber-600 mt-1">
+                {warehouseStocks.filter((s) => s.status === 'Kritis').length} SKU
+              </p>
+              <p className="text-[11px] text-amber-700 mt-1">
+                {warehouseStocks.find((s) => s.status === 'Kritis')
+                  ? `${warehouseStocks.find((s) => s.status === 'Kritis')?.name} (Sisa ${warehouseStocks.find((s) => s.status === 'Kritis')?.depoStock} unit)`
+                  : 'Stok di atas batas kritis'}
+              </p>
             </div>
           </div>
 
@@ -737,7 +594,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {WAREHOUSE_STOCKS_DATA.map((item) => {
+                  {warehouseStocks.map((item) => {
                     const isHabis = item.status === 'Habis';
                     const isKritis = item.status === 'Kritis';
                     return (
@@ -831,8 +688,24 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-blue-600 text-xs">{item.id}</span>
                           <span className="text-slate-300">•</span>
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-[10px]">
-                            {item.type}
+                          <span
+                            className={`px-2 py-0.5 rounded font-semibold text-[10px] ${
+                              item.type === 'NOO'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : item.type === 'Order'
+                                ? 'bg-purple-100 text-purple-800'
+                                : item.type === 'Retur'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {item.type === 'NOO'
+                              ? 'Pendaftaran NOO'
+                              : item.type === 'Order'
+                              ? 'Otorisasi Order SAP'
+                              : item.type === 'Retur'
+                              ? 'Klaim Retur'
+                              : item.type}
                           </span>
                           <span className="text-xs font-bold text-slate-900">{item.title}</span>
                         </div>
@@ -881,6 +754,182 @@ export default function DashboardPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: MONITORING PESANAN MASUK (LIVE PO SAP) */}
+      {/* ========================================================================= */}
+      {activeSupervisorTab === 'orders' && (
+        <div className="space-y-6">
+          {/* Order Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Total Pesanan Masuk Hari Ini</span>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">{salesOrders.length} Pesanan</p>
+              <p className="text-[11px] text-slate-400 mt-1">Diterbitkan oleh tim salesman lapangan</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Total Nilai Omset PO</span>
+              <p className="text-2xl font-extrabold text-blue-600 mt-1">
+                Rp {salesOrders.reduce((a, b) => a + b.totalRp, 0).toLocaleString('id-ID')}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">Akumulasi taking order harian</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Perlu Otorisasi Supervisor</span>
+              <p className="text-2xl font-extrabold text-amber-600 mt-1">
+                {salesOrders.filter((o) => o.status === 'Menunggu Persetujuan Supervisor').length} PO
+              </p>
+              <p className="text-[11px] text-amber-700 mt-1">Menunggu pengesahan rilis gudang</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium">Telah Disetujui & Siap Kirim</span>
+              <p className="text-2xl font-extrabold text-emerald-600 mt-1">
+                {salesOrders.filter((o) => o.status === 'Disetujui & Siap Kirim').length} PO
+              </p>
+              <p className="text-[11px] text-emerald-700 mt-1">Stok terpotong, siap dipacking</p>
+            </div>
+          </div>
+
+          {/* Orders Table */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4 text-blue-600" />
+                  <span>Daftar Transaksi Pesanan Masuk Salesman ({salesOrders.length})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Supervisor memantau seluruh PO yang dikirim oleh salesman, mengecek rincian barang, dan dapat menyetujui langsung
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
+                Realtime SAP Backoffice
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="p-3.5">Nomor PO</th>
+                    <th className="p-3.5">Outlet Pemesan</th>
+                    <th className="p-3.5">Salesman</th>
+                    <th className="p-3.5">Item Produk</th>
+                    <th className="p-3.5 text-right">Total Nilai</th>
+                    <th className="p-3.5 text-center">Termin</th>
+                    <th className="p-3.5 text-center">Status Otorisasi</th>
+                    <th className="p-3.5 text-center">Aksi Supervisi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {salesOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
+                        Belum ada pesanan yang masuk hari ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    salesOrders.map((order) => {
+                      const isPending = order.status === 'Menunggu Persetujuan Supervisor';
+                      const isApproved = order.status === 'Disetujui & Siap Kirim';
+                      const isRejected = order.status === 'Ditolak Supervisor';
+
+                      return (
+                        <tr key={order.id} className="hover:bg-slate-50/80 transition">
+                          <td className="p-3.5 font-bold text-blue-600 whitespace-nowrap">
+                            {order.id}
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              {order.date} • {order.time}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <p className="font-bold text-slate-900">{order.outletName}</p>
+                            {order.approvalId && (
+                              <span className="text-[10px] text-purple-700 font-medium">
+                                Tiket: {order.approvalId}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-3.5 text-slate-700 font-medium">
+                            {order.salesName}
+                          </td>
+
+                          <td className="p-3.5">
+                            <p className="font-semibold text-slate-800">
+                              {order.items.length} jenis produk
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate max-w-xs">
+                              {order.items.map((it) => `${it.productName} (${it.qty} ${it.unit})`).join(', ')}
+                            </p>
+                          </td>
+
+                          <td className="p-3.5 text-right font-extrabold text-slate-900 whitespace-nowrap">
+                            Rp {order.totalRp.toLocaleString('id-ID')}
+                          </td>
+
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
+                              {order.paymentTerm}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isPending
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : isApproved
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                            >
+                              {isPending && <Clock className="w-3 h-3 text-amber-600 animate-pulse" />}
+                              {isApproved && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                              {isRejected && <AlertTriangle className="w-3 h-3 text-rose-600" />}
+                              <span>{order.status}</span>
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprovalAction(order.approvalId || order.id, 'rejected')}
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                                >
+                                  Tolak
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprovalAction(order.approvalId || order.id, 'approved')}
+                                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition shadow-2xs cursor-pointer flex items-center gap-1"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>Setujui</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                Selesai Diotorisasi
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

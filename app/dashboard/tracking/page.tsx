@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Route,
   CheckCircle2,
@@ -16,152 +16,20 @@ import {
   Check,
 } from 'lucide-react';
 
-interface RouteStop {
-  id: string;
-  orderIndex: number;
-  outletName: string;
-  owner: string;
-  address: string;
-  scheduledTime: string;
-  actualCheckIn?: string;
-  actualCheckOut?: string;
-  durationMinutes?: number;
-  orderValueRp?: number;
-  status: 'completed' | 'in_progress' | 'waiting' | 'skipped';
-  coordinates: { lat: number; lng: number };
-  notes?: string;
-}
-
-interface SalesPerson {
-  id: string;
-  name: string;
-  area: string;
-  vehicle: string;
-  plateNumber: string;
-  phone: string;
-  batteryLevel: number;
-  currentLat: number;
-  currentLng: number;
-  currentStatus: string;
-  lastPing: string;
-}
-
-const SALES_LIST: SalesPerson[] = [
-  {
-    id: 'SLM-001',
-    name: 'Budi Santoso',
-    area: 'Bandung Kota',
-    vehicle: 'Motor Honda Vario 160',
-    plateNumber: 'D 4521 ABC',
-    phone: '0812-8877-6655',
-    batteryLevel: 82,
-    currentLat: -6.921852,
-    currentLng: 107.607185,
-    currentStatus: 'Sedang di Toko Sumber Berkah (In-Store)',
-    lastPing: '1 menit yang lalu',
-  },
-  {
-    id: 'SLM-002',
-    name: 'Siti Rahmawati',
-    area: 'Bandung Barat',
-    vehicle: 'Motor Honda Beat',
-    plateNumber: 'D 3312 XYZ',
-    phone: '0813-2233-4455',
-    batteryLevel: 65,
-    currentLat: -6.868212,
-    currentLng: 107.498321,
-    currentStatus: 'Perjalanan menuju Warung Bu Siti',
-    lastPing: '30 detik yang lalu',
-  },
-  {
-    id: 'SLM-003',
-    name: 'Andi Pratama',
-    area: 'Cimahi',
-    vehicle: 'Motor Yamaha NMAX',
-    plateNumber: 'D 6789 KMN',
-    phone: '0857-9988-1122',
-    batteryLevel: 91,
-    currentLat: -6.872341,
-    currentLng: 107.542119,
-    currentStatus: 'Istirahat / Siap lanjut rute ke-3',
-    lastPing: '2 menit yang lalu',
-  },
-];
-
-const INITIAL_STOPS: RouteStop[] = [
-  {
-    id: 'STP-01',
-    orderIndex: 1,
-    outletName: 'Toko Sumber Berkah',
-    owner: 'Haji Ahmad',
-    address: 'Jl. Asia Afrika No. 45, Bandung Kota',
-    scheduledTime: '08:30 WIB',
-    actualCheckIn: '08:32 WIB',
-    actualCheckOut: '09:15 WIB',
-    durationMinutes: 43,
-    orderValueRp: 1850000,
-    status: 'completed',
-    coordinates: { lat: -6.9218, lng: 107.6071 },
-    notes: 'Restock Minyak Goreng & Beras, pembayaran tempo aman.',
-  },
-  {
-    id: 'STP-02',
-    orderIndex: 2,
-    outletName: 'Warung Bu Siti',
-    owner: 'Siti Rohayati',
-    address: 'Jl. Sudirman No. 112, Bandung',
-    scheduledTime: '09:45 WIB',
-    actualCheckIn: '09:50 WIB',
-    actualCheckOut: '10:25 WIB',
-    durationMinutes: 35,
-    orderValueRp: 920000,
-    status: 'completed',
-    coordinates: { lat: -6.9189, lng: 107.5954 },
-    notes: 'Order kopi kemasan dan snack, mengajukan retur 2 kaleng rusak.',
-  },
-  {
-    id: 'STP-03',
-    orderIndex: 3,
-    outletName: 'Minimarket Barokah Mandiri',
-    owner: 'Rudi Hartono',
-    address: 'Jl. Pasirkaliki No. 78, Bandung',
-    scheduledTime: '10:45 WIB',
-    actualCheckIn: '10:52 WIB',
-    status: 'in_progress',
-    coordinates: { lat: -6.9084, lng: 107.6022 },
-    notes: 'Sedang pengecekan stok display dan pengambilan PO.',
-  },
-  {
-    id: 'STP-04',
-    orderIndex: 4,
-    outletName: 'Toko Harapan Jaya',
-    owner: 'Bambang Sudiro',
-    address: 'Jl. Cihampelas No. 204, Bandung',
-    scheduledTime: '13:00 WIB',
-    status: 'waiting',
-    coordinates: { lat: -6.8925, lng: 107.6048 },
-  },
-  {
-    id: 'STP-05',
-    orderIndex: 5,
-    outletName: 'Kios Rezeki Baru',
-    owner: 'Hj. Aminah',
-    address: 'Jl. Setiabudhi No. 56, Bandung',
-    scheduledTime: '14:30 WIB',
-    status: 'waiting',
-    coordinates: { lat: -6.8741, lng: 107.5982 },
-  },
-  {
-    id: 'STP-06',
-    orderIndex: 6,
-    outletName: 'Grosir Sentosa Abadi',
-    owner: 'Koh Kevin',
-    address: 'Jl. Sukajadi No. 138, Bandung',
-    scheduledTime: '16:00 WIB',
-    status: 'waiting',
-    coordinates: { lat: -6.8856, lng: 107.5921 },
-  },
-];
+import salesRepsRaw from '@/data/sales-reps.json';
+import initialStopsRaw from '@/data/route-stops.json';
+import {
+  getStoredRouteStops,
+  setStoredRouteStops,
+  getStoredActivityLogs,
+  addActivityLogItem,
+  getStoredSalesReps,
+  setStoredSalesReps,
+  STORAGE_SYNC_EVENT,
+  RouteStop,
+  SalesPerson,
+  ActivityLogItem,
+} from '@/lib/storage';
 
 const STOP_MAP_POSITIONS: Record<string, { x: number; y: number; svgX: number; svgY: number }> = {
   'STP-01': { x: 14, y: 74, svgX: 84, svgY: 222 },
@@ -174,14 +42,29 @@ const STOP_MAP_POSITIONS: Record<string, { x: number; y: number; svgX: number; s
 
 export default function RouteTrackingPage() {
   const [selectedSalesId, setSelectedSalesId] = useState('SLM-001');
-  const [stops, setStops] = useState<RouteStop[]>(INITIAL_STOPS);
+  const [stops, setStops] = useState<RouteStop[]>(initialStopsRaw as RouteStop[]);
+  const [salesList, setSalesList] = useState<SalesPerson[]>(salesRepsRaw as SalesPerson[]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
   const [activeModalStop, setActiveModalStop] = useState<RouteStop | null>(null);
   const [modalAction, setModalAction] = useState<'checkin' | 'checkout' | null>(null);
   const [modalNote, setModalNote] = useState('');
   const [modalOrderValue, setModalOrderValue] = useState('');
   const [feedbackToast, setFeedbackToast] = useState('');
 
-  const currentSales = SALES_LIST.find((s) => s.id === selectedSalesId) || SALES_LIST[0];
+  // Sync with persistent localStorage
+  useEffect(() => {
+    const syncData = () => {
+      setStops(getStoredRouteStops());
+      setSalesList(getStoredSalesReps());
+      setActivityLogs(getStoredActivityLogs());
+    };
+
+    syncData();
+    window.addEventListener(STORAGE_SYNC_EVENT, syncData);
+    return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
+  }, []);
+
+  const currentSales = salesList.find((s) => s.id === selectedSalesId) || salesList[0];
 
   // Full Planned Sequential Route Corridor
   const fullPlannedRouteD = 'M 84 222 L 174 174 L 270 129 L 366 96 L 462 60 L 534 114';
@@ -228,36 +111,84 @@ export default function RouteTrackingPage() {
         minute: '2-digit',
       }) + ' WIB';
 
+    let updatedStops: RouteStop[] = [];
+
     if (modalAction === 'checkin') {
-      setStops((prev) =>
-        prev.map((s) =>
-          s.id === activeModalStop.id
-            ? {
-                ...s,
-                status: 'in_progress',
-                actualCheckIn: currentTimeStr,
-                notes: modalNote || 'Sales telah check-in di outlet sesuai geotag.',
-              }
-            : s
-        )
+      updatedStops = stops.map((s) =>
+        s.id === activeModalStop.id
+          ? {
+              ...s,
+              status: 'in_progress' as const,
+              actualCheckIn: currentTimeStr,
+              notes: modalNote || 'Sales telah check-in di outlet sesuai geotag.',
+            }
+          : s
       );
+      setStops(updatedStops);
+      setStoredRouteStops(updatedStops);
+
+      // Add activity log
+      addActivityLogItem({
+        id: `LOG-${Date.now()}`,
+        title: `Check-in ${activeModalStop.outletName}`,
+        detail: `${currentTimeStr} • Geotag radius 14m (Valid)`,
+        type: 'checkin',
+        time: currentTimeStr,
+      });
+
+      // Update salesman live status
+      const updatedSales = salesList.map((sales) =>
+        sales.id === selectedSalesId
+          ? {
+              ...sales,
+              currentStatus: `Sedang di ${activeModalStop.outletName}`,
+              lastPing: currentTimeStr,
+            }
+          : sales
+      );
+      setSalesList(updatedSales);
+      setStoredSalesReps(updatedSales);
+
       setFeedbackToast(`Check-in berhasil di ${activeModalStop.outletName} (${currentTimeStr})`);
     } else if (modalAction === 'checkout') {
       const orderVal = Number(modalOrderValue) || 0;
-      setStops((prev) =>
-        prev.map((s) =>
-          s.id === activeModalStop.id
-            ? {
-                ...s,
-                status: 'completed',
-                actualCheckOut: currentTimeStr,
-                durationMinutes: 38,
-                orderValueRp: orderVal,
-                notes: modalNote || 'Kunjungan selesai dan taking order berhasil dicatat.',
-              }
-            : s
-        )
+      updatedStops = stops.map((s) =>
+        s.id === activeModalStop.id
+          ? {
+              ...s,
+              status: 'completed' as const,
+              actualCheckOut: currentTimeStr,
+              durationMinutes: 38,
+              orderValueRp: orderVal,
+              notes: modalNote || 'Kunjungan selesai dan taking order berhasil dicatat.',
+            }
+          : s
       );
+      setStops(updatedStops);
+      setStoredRouteStops(updatedStops);
+
+      // Add activity log
+      addActivityLogItem({
+        id: `LOG-${Date.now()}`,
+        title: `Check-out ${activeModalStop.outletName}`,
+        detail: `${currentTimeStr} • Kunjungan selesai, PO: Rp ${orderVal.toLocaleString('id-ID')}`,
+        type: 'checkout',
+        time: currentTimeStr,
+      });
+
+      // Update salesman live status
+      const updatedSales = salesList.map((sales) =>
+        sales.id === selectedSalesId
+          ? {
+              ...sales,
+              currentStatus: 'Menuju titik rute berikutnya',
+              lastPing: currentTimeStr,
+            }
+          : sales
+      );
+      setSalesList(updatedSales);
+      setStoredSalesReps(updatedSales);
+
       setFeedbackToast(
         `Check-out berhasil di ${activeModalStop.outletName}. PO: Rp ${orderVal.toLocaleString('id-ID')}`
       );
@@ -306,7 +237,7 @@ export default function RouteTrackingPage() {
               onChange={(e) => setSelectedSalesId(e.target.value)}
               className="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer"
             >
-              {SALES_LIST.map((s) => (
+              {salesList.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.area})
                 </option>
@@ -753,45 +684,46 @@ export default function RouteTrackingPage() {
             </h3>
 
             <div className="space-y-3 relative before:absolute before:inset-0 before:left-3.5 before:w-0.5 before:bg-slate-200">
-              <div className="relative flex items-start gap-3 pl-1">
-                <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs">
-                  <p className="font-bold text-slate-800">Check-in Toko Sumber Berkah</p>
-                  <p className="text-[11px] text-slate-400">08:32 WIB • Geotag radius 14m (Valid)</p>
-                </div>
-              </div>
+              {activityLogs.length === 0 ? (
+                <p className="text-xs text-slate-400 pl-2">Belum ada aktivitas tercatat hari ini.</p>
+              ) : (
+                activityLogs.map((log, idx) => {
+                  const isOrder = log.type === 'order';
+                  const isCheckin = log.type === 'checkin';
+                  const isCheckout = log.type === 'checkout';
+                  const isLatest = idx === 0;
 
-              <div className="relative flex items-start gap-3 pl-1">
-                <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 z-10">
-                  <FileText className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs">
-                  <p className="font-bold text-slate-800">Taking Order Berhasil Diterbitkan</p>
-                  <p className="text-[11px] text-slate-400">09:12 WIB • PO-SAP-881290 (Rp 1.850.000)</p>
-                </div>
-              </div>
-
-              <div className="relative flex items-start gap-3 pl-1">
-                <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs">
-                  <p className="font-bold text-slate-800">Check-in Warung Bu Siti</p>
-                  <p className="text-[11px] text-slate-400">09:50 WIB • Mengajukan klaim retur 2 unit</p>
-                </div>
-              </div>
-
-              <div className="relative flex items-start gap-3 pl-1">
-                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 z-10 animate-pulse">
-                  <Navigation className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs">
-                  <p className="font-bold text-blue-700">Check-in Minimarket Barokah Mandiri</p>
-                  <p className="text-[11px] text-slate-400">10:52 WIB • Sedang proses taking order di kasir</p>
-                </div>
-              </div>
+                  return (
+                    <div key={log.id} className="relative flex items-start gap-3 pl-1">
+                      <div
+                        className={`w-6 h-6 rounded-full text-white flex items-center justify-center shrink-0 z-10 ${
+                          isOrder
+                            ? 'bg-blue-500'
+                            : isCheckout
+                            ? 'bg-emerald-600'
+                            : isCheckin && isLatest
+                            ? 'bg-blue-600 animate-pulse'
+                            : 'bg-emerald-500'
+                        }`}
+                      >
+                        {isOrder ? (
+                          <FileText className="w-3.5 h-3.5" />
+                        ) : isCheckout ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : (
+                          <Navigation className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                      <div className="text-xs">
+                        <p className={`font-bold ${isLatest ? 'text-blue-700' : 'text-slate-800'}`}>
+                          {log.title}
+                        </p>
+                        <p className="text-[11px] text-slate-400">{log.detail}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

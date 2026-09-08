@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   MapPin,
   ShieldCheck,
@@ -14,77 +14,15 @@ import {
   Navigation,
 } from 'lucide-react';
 
-interface OutletItem {
-  id: string;
-  name: string;
-  owner: string;
-  phone: string;
-  category: string;
-  area: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  status: 'Verified' | 'Pending Approval' | 'Rejected';
-  registeredDate: string;
-}
-
-const INITIAL_OUTLETS: OutletItem[] = [
-  {
-    id: 'OUT-BDG-001',
-    name: 'Toko Sumber Berkah',
-    owner: 'Haji Ahmad',
-    phone: '081234567890',
-    category: 'Grosir Sembako',
-    area: 'Bandung Kota',
-    address: 'Jl. Asia Afrika No. 45, Bandung',
-    latitude: -6.921852,
-    longitude: 107.607185,
-    status: 'Verified',
-    registeredDate: '01 Sep 2026',
-  },
-  {
-    id: 'OUT-BDG-002',
-    name: 'Warung Bu Siti',
-    owner: 'Siti Rohayati',
-    phone: '081398765432',
-    category: 'Toko Kelontong',
-    area: 'Bandung Barat',
-    address: 'Jl. Raya Cimareme No. 12, Padalarang',
-    latitude: -6.868212,
-    longitude: 107.498321,
-    status: 'Verified',
-    registeredDate: '03 Sep 2026',
-  },
-  {
-    id: 'OUT-BDG-003',
-    name: 'Minimarket Barokah',
-    owner: 'Rudi Hartono',
-    phone: '085712349988',
-    category: 'Minimarket Mandiri',
-    area: 'Cimahi',
-    address: 'Jl. Amir Machmud No. 88, Cimahi',
-    latitude: -6.872341,
-    longitude: 107.542119,
-    status: 'Pending Approval',
-    registeredDate: '06 Sep 2026',
-  },
-  {
-    id: 'OUT-BDG-004',
-    name: 'Toko Harapan Jaya',
-    owner: 'Bambang Sudiro',
-    phone: '082188776655',
-    category: 'Grosir Sembako',
-    area: 'Soreang',
-    address: 'Jl. Raya Soreang - Banjaran No. 104',
-    latitude: -7.032115,
-    longitude: 107.519822,
-    status: 'Verified',
-    registeredDate: '05 Sep 2026',
-  },
-];
+import {
+  OutletItem,
+  getStoredOutlets,
+  registerNewOutlet,
+  STORAGE_SYNC_EVENT,
+} from '@/lib/storage';
 
 export default function OutletsPage() {
-  const [outlets, setOutlets] = useState<OutletItem[]>(INITIAL_OUTLETS);
+  const [outlets, setOutlets] = useState<OutletItem[]>([]);
   const [search, setSearch] = useState('');
   const [selectedArea, setSelectedArea] = useState('All');
   const [isSimulatingGps, setIsSimulatingGps] = useState(false);
@@ -108,6 +46,13 @@ export default function OutletsPage() {
   const [formLat, setFormLat] = useState(-6.917464);
   const [formLng, setFormLng] = useState(107.619123);
   const [successNotice, setSuccessNotice] = useState('');
+
+  useEffect(() => {
+    setOutlets(getStoredOutlets());
+    const handleSync = () => setOutlets(getStoredOutlets());
+    window.addEventListener(STORAGE_SYNC_EVENT, handleSync);
+    return () => window.removeEventListener(STORAGE_SYNC_EVENT, handleSync);
+  }, []);
 
   const handleSimulateGpsCheck = () => {
     setIsSimulatingGps(true);
@@ -156,16 +101,18 @@ export default function OutletsPage() {
       latitude: formLat,
       longitude: formLng,
       status: 'Pending Approval',
-      registeredDate: '07 Sep 2026',
+      registeredDate: '08 Sep 2026',
     };
 
-    setOutlets([newOutlet, ...outlets]);
-    setSuccessNotice(`Outlet baru ${formName} (${newId}) berhasil didaftarkan! Menunggu verifikasi supervisor.`);
+    const approval = registerNewOutlet(newOutlet);
+    setSuccessNotice(
+      `Outlet baru ${formName} (${newId}) berhasil didaftarkan dan pengajuan ${approval.id} otomatis dikirim ke Meja Supervisi!`
+    );
     setFormName('');
     setFormOwner('');
     setFormPhone('');
     setFormAddress('');
-    setTimeout(() => setSuccessNotice(''), 5000);
+    setTimeout(() => setSuccessNotice(''), 6000);
   };
 
   const filteredOutlets = outlets.filter((o) => {

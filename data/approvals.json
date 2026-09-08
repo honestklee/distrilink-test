@@ -6,7 +6,8 @@
     "submitter": "Andi Pratama (Sales)",
     "detail": "Pengecekan geotag GPS telah lolos validasi otomatis 18 meter dari lokasi toko.",
     "date": "06 Sep 2026 16:30",
-    "status": "pending"
+    "status": "pending",
+    "outletId": "OUT-BDG-003"
   },
   {
     "id": "APV-002",
@@ -24,6 +25,7 @@
     "submitter": "Siti Rahmawati (Sales)",
     "detail": "Toko Sumber Berkah meminta penggantian barang lot rusak segel pabrik.",
     "date": "07 Sep 2026 10:15",
-    "status": "pending"
+    "status": "pending",
+    "returId": "RET-2026-001"
   }
 ]

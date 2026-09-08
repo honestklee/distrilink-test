@@ -151,13 +151,13 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
 
       {/* Navigation Groups (Scrollable) */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 py-4 space-y-6">
-        {/* Group 1: Supervisi & Konsolidasi */}
+        {/* Group 1: Supervisi & Konsolidasi (Role: Supervisor & HQ) */}
         <div>
-          <div className="px-3 mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Supervisi & Konsolidasi
+          <div className="px-2 mb-2.5 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 bg-indigo-50/90 px-2 py-1 rounded-lg border border-indigo-100 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              Role: Supervisor & Backoffice
             </span>
-            <ShieldCheck className="w-3 h-3 text-slate-400" />
           </div>
           <nav className="space-y-1">
             {managementNavItems.map((item) => {
@@ -201,13 +201,13 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
           </nav>
         </div>
 
-        {/* Group 2: Operasional Sales Lapangan */}
+        {/* Group 2: Operasional Sales Lapangan (Role: Salesman / SFA) */}
         <div>
-          <div className="px-3 mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Operasional Sales Lapangan
+          <div className="px-2 mb-2.5 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 bg-blue-50/90 px-2 py-1 rounded-lg border border-blue-100 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              Role: Salesman Lapangan (SFA)
             </span>
-            <ChevronRight className="w-3 h-3 text-slate-400" />
           </div>
           <nav className="space-y-1">
             {salesNavItems.map((item) => {

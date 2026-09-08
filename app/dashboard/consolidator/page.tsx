@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Layers,
   Building2,
@@ -16,111 +16,30 @@ import {
   Filter,
 } from 'lucide-react';
 
-interface BranchData {
-  id: string;
-  name: string;
-  region: string;
-  supervisor: string;
-  salesTeamCount: number;
-  outletsCount: number;
-  targetOmsetRp: number;
-  realizationOmsetRp: number;
-  achievementPercent: number;
-  oosRatePercent: number;
-  returRatePercent: number;
-  syncLatencyMs: number;
-  lastSync: string;
-  status: 'online' | 'syncing' | 'delayed';
-}
-
-const BRANCHES_DATA: BranchData[] = [
-  {
-    id: 'HUB-BDG',
-    name: 'Hub Jawa Barat (Bandung)',
-    region: 'Jawa Barat',
-    supervisor: 'Irwan Setiawan, S.E.',
-    salesTeamCount: 18,
-    outletsCount: 385,
-    targetOmsetRp: 420000000,
-    realizationOmsetRp: 470400000,
-    achievementPercent: 112,
-    oosRatePercent: 2.1,
-    returRatePercent: 0.8,
-    syncLatencyMs: 18,
-    lastSync: 'Baru saja',
-    status: 'online',
-  },
-  {
-    id: 'HUB-JKT',
-    name: 'Hub DKI Jakarta & Banten',
-    region: 'Jabodetabek',
-    supervisor: 'Hendro Wijaya',
-    salesTeamCount: 24,
-    outletsCount: 512,
-    targetOmsetRp: 550000000,
-    realizationOmsetRp: 539000000,
-    achievementPercent: 98,
-    oosRatePercent: 3.4,
-    returRatePercent: 1.2,
-    syncLatencyMs: 24,
-    lastSync: '1 menit lalu',
-    status: 'online',
-  },
-  {
-    id: 'HUB-SBY',
-    name: 'Hub Jawa Timur (Surabaya)',
-    region: 'Jawa Timur',
-    supervisor: 'Agus Santoso',
-    salesTeamCount: 16,
-    outletsCount: 340,
-    targetOmsetRp: 360000000,
-    realizationOmsetRp: 374400000,
-    achievementPercent: 104,
-    oosRatePercent: 4.8,
-    returRatePercent: 0.9,
-    syncLatencyMs: 31,
-    lastSync: '2 menit lalu',
-    status: 'online',
-  },
-  {
-    id: 'HUB-SMG',
-    name: 'Hub Jawa Tengah (Semarang)',
-    region: 'Jawa Tengah',
-    supervisor: 'Bambang Triatmojo',
-    salesTeamCount: 12,
-    outletsCount: 245,
-    targetOmsetRp: 250000000,
-    realizationOmsetRp: 232500000,
-    achievementPercent: 93,
-    oosRatePercent: 2.9,
-    returRatePercent: 0.6,
-    syncLatencyMs: 29,
-    lastSync: '4 menit lalu',
-    status: 'online',
-  },
-  {
-    id: 'HUB-MDN',
-    name: 'Hub Sumatera Utara (Medan)',
-    region: 'Sumatera',
-    supervisor: 'Rahmat Hidayat',
-    salesTeamCount: 10,
-    outletsCount: 198,
-    targetOmsetRp: 200000000,
-    realizationOmsetRp: 178000000,
-    achievementPercent: 89,
-    oosRatePercent: 8.5,
-    returRatePercent: 1.8,
-    syncLatencyMs: 64,
-    lastSync: '6 menit lalu',
-    status: 'delayed',
-  },
-];
+import branchesRaw from '@/data/branches.json';
+import {
+  getStoredBranches,
+  setStoredBranches,
+  STORAGE_SYNC_EVENT,
+  BranchData,
+} from '@/lib/storage';
 
 export default function ConsolidatorPage() {
-  const [branches, setBranches] = useState<BranchData[]>(BRANCHES_DATA);
+  const [branches, setBranches] = useState<BranchData[]>(branchesRaw as BranchData[]);
   const [selectedRegion, setSelectedRegion] = useState('All');
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  // Sync with persistent storage
+  useEffect(() => {
+    const syncData = () => {
+      setBranches(getStoredBranches());
+    };
+
+    syncData();
+    window.addEventListener(STORAGE_SYNC_EVENT, syncData);
+    return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
+  }, []);
 
   // Consolidated national aggregates
   const filteredBranches = branches.filter(
@@ -139,14 +58,14 @@ export default function ConsolidatorPage() {
   const handleSyncAllBranches = () => {
     setIsSyncingAll(true);
     setTimeout(() => {
-      setBranches((prev) =>
-        prev.map((b) => ({
-          ...b,
-          lastSync: 'Baru saja',
-          status: 'online',
-          syncLatencyMs: Math.floor(Math.random() * 20) + 15,
-        }))
-      );
+      const updated = branches.map((b) => ({
+        ...b,
+        lastSync: 'Baru saja',
+        status: 'online' as const,
+        syncLatencyMs: Math.floor(Math.random() * 20) + 15,
+      }));
+      setBranches(updated);
+      setStoredBranches(updated);
       setIsSyncingAll(false);
       setToastMessage('Konsolidasi data 5 Hub distributor nasional berhasil disinkronkan!');
       setTimeout(() => setToastMessage(''), 4000);

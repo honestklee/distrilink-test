@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   PackageX,
   PhoneCall,
@@ -13,185 +13,53 @@ import {
   Send,
 } from 'lucide-react';
 
-interface ProductItem {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  stock: number;
-  unit: string;
-  substituteId?: string;
-  substituteName?: string;
-}
-
-const WAREHOUSE_PRODUCTS: ProductItem[] = [
-  {
-    id: 'PRD-001',
-    name: 'Minyak Goreng Rose Brand 2L',
-    category: 'Sembako',
-    price: 34000,
-    stock: 140,
-    unit: 'pouch',
-  },
-  {
-    id: 'PRD-002',
-    name: 'Beras Premium Pandan Wangi 5kg',
-    category: 'Sembako',
-    price: 75000,
-    stock: 0, // OUT OF STOCK!
-    unit: 'sak',
-    substituteId: 'PRD-007',
-    substituteName: 'Beras Premium Ramos Setra 5kg (Tersedia 60 sak)',
-  },
-  {
-    id: 'PRD-003',
-    name: 'Kopi Kapal Api Special Mix (Renteng)',
-    category: 'Minuman',
-    price: 18500,
-    stock: 220,
-    unit: 'renteng',
-  },
-  {
-    id: 'PRD-004',
-    name: 'Susu Ultra Milk UHT 1L Full Cream',
-    category: 'Minuman',
-    price: 21000,
-    stock: 0, // OUT OF STOCK!
-    unit: 'kotak',
-    substituteId: 'PRD-008',
-    substituteName: 'Susu Indomilk UHT 1L Plain (Tersedia 45 kotak)',
-  },
-  {
-    id: 'PRD-005',
-    name: 'Gula Pasir Gulaku Tebu 1kg',
-    category: 'Sembako',
-    price: 17500,
-    stock: 8, // LOW STOCK
-    unit: 'bungkus',
-  },
-  {
-    id: 'PRD-006',
-    name: 'Teh Botol Sosro 250ml (Karton)',
-    category: 'Minuman',
-    price: 72000,
-    stock: 60,
-    unit: 'karton',
-  },
-  {
-    id: 'PRD-007',
-    name: 'Beras Premium Ramos Setra 5kg',
-    category: 'Sembako',
-    price: 74000,
-    stock: 60,
-    unit: 'sak',
-  },
-  {
-    id: 'PRD-008',
-    name: 'Susu Indomilk UHT 1L Plain',
-    category: 'Minuman',
-    price: 20500,
-    stock: 45,
-    unit: 'kotak',
-  },
-];
-
-interface RemoteOrder {
-  id: string;
-  outletName: string;
-  channel: 'WhatsApp' | 'Telepon' | 'Portal B2B' | 'Darurat';
-  reason: string;
-  items: {
-    productId: string;
-    productName: string;
-    qty: number;
-    unit: string;
-    isOos: boolean;
-    substituteUsed?: string;
-  }[];
-  totalRp: number;
-  date: string;
-  status: 'Siap Kirim' | 'Substitusi Diterapkan' | 'Backorder Menunggu Pasokan';
-  restockEta?: string;
-}
-
-const INITIAL_REMOTE_ORDERS: RemoteOrder[] = [
-  {
-    id: 'RMT-2026-001',
-    outletName: 'Toko Sumber Berkah',
-    channel: 'WhatsApp',
-    reason: 'Permintaan Restock Cepat (Stok Toko Menipis Drastis)',
-    items: [
-      {
-        productId: 'PRD-001',
-        productName: 'Minyak Goreng Rose Brand 2L',
-        qty: 10,
-        unit: 'pouch',
-        isOos: false,
-      },
-    ],
-    totalRp: 340000,
-    date: '07 Sep 2026 11:20',
-    status: 'Siap Kirim',
-  },
-  {
-    id: 'RMT-2026-002',
-    outletName: 'Warung Bu Siti',
-    channel: 'Telepon',
-    reason: 'Di luar jadwal rute kunjungan fisik hari ini',
-    items: [
-      {
-        productId: 'PRD-002',
-        productName: 'Beras Premium Pandan Wangi 5kg',
-        qty: 5,
-        unit: 'sak',
-        isOos: true,
-        substituteUsed: 'Substitusi ke Beras Ramos Setra 5kg',
-      },
-    ],
-    totalRp: 370000,
-    date: '07 Sep 2026 10:45',
-    status: 'Substitusi Diterapkan',
-  },
-  {
-    id: 'RMT-2026-003',
-    outletName: 'Minimarket Barokah Mandiri',
-    channel: 'Portal B2B',
-    reason: 'Pesanan mandiri dari aplikasi portal toko',
-    items: [
-      {
-        productId: 'PRD-004',
-        productName: 'Susu Ultra Milk UHT 1L Full Cream',
-        qty: 20,
-        unit: 'kotak',
-        isOos: true,
-      },
-    ],
-    totalRp: 420000,
-    date: '07 Sep 2026 09:15',
-    status: 'Backorder Menunggu Pasokan',
-    restockEta: '08 Sep 2026 (Pagi)',
-  },
-];
-
-const OUTLETS = [
-  'Toko Sumber Berkah - Bandung Kota',
-  'Warung Bu Siti - Bandung Barat',
-  'Minimarket Barokah Mandiri - Cimahi',
-  'Toko Harapan Jaya - Soreang',
-  'Kios Rezeki Baru - Bandung Timur',
-];
+import warehouseProductsRaw from '@/data/warehouse-products.json';
+import initialRemoteOrdersRaw from '@/data/remote-orders.json';
+import outletsList from '@/data/outlets-list.json';
+import {
+  getStoredRemoteOrders,
+  createRemoteOrder,
+  getStoredOutletOptions,
+  getStoredWarehouseProducts,
+  STORAGE_SYNC_EVENT,
+  RemoteOrder,
+  CatalogProduct,
+} from '@/lib/storage';
 
 export default function OosOrdersPage() {
-  const [orders, setOrders] = useState<RemoteOrder[]>(INITIAL_REMOTE_ORDERS);
-  const [selectedOutlet, setSelectedOutlet] = useState(OUTLETS[0]);
+  const [orders, setOrders] = useState<RemoteOrder[]>(initialRemoteOrdersRaw as RemoteOrder[]);
+  const [outlets, setOutlets] = useState<string[]>(outletsList);
+  const [warehouseProducts, setWarehouseProducts] = useState<CatalogProduct[]>(warehouseProductsRaw as CatalogProduct[]);
+  const [selectedOutlet, setSelectedOutlet] = useState<string>(outletsList[0]);
   const [channel, setChannel] = useState<'WhatsApp' | 'Telepon' | 'Portal B2B' | 'Darurat'>('WhatsApp');
   const [nonVisitReason, setNonVisitReason] = useState('Toko memesan darurat di luar jadwal rute regular');
-  const [selectedProductId, setSelectedProductId] = useState(WAREHOUSE_PRODUCTS[1].id); // Pandan wangi (OOS to show feature!)
+  const [selectedProductId, setSelectedProductId] = useState<string>(warehouseProductsRaw[1].id); // Pandan wangi (OOS to show feature!)
   const [orderQty, setOrderQty] = useState(5);
   const [oosActionChoice, setOosActionChoice] = useState<'substitute' | 'backorder'>('substitute');
   const [toastMessage, setToastMessage] = useState('');
 
-  const currentProduct = WAREHOUSE_PRODUCTS.find((p) => p.id === selectedProductId) || WAREHOUSE_PRODUCTS[0];
+  // Load and listen to reactive storage updates
+  useEffect(() => {
+    const syncData = () => {
+      const storedOrders = getStoredRemoteOrders();
+      const storedOutlets = getStoredOutletOptions();
+      const storedProducts = getStoredWarehouseProducts();
+
+      setOrders(storedOrders);
+      setOutlets(storedOutlets);
+      setWarehouseProducts(storedProducts);
+
+      if (!storedOutlets.includes(selectedOutlet) && storedOutlets.length > 0) {
+        setSelectedOutlet(storedOutlets[0]);
+      }
+    };
+
+    syncData();
+    window.addEventListener(STORAGE_SYNC_EVENT, syncData);
+    return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
+  }, []);
+
+  const currentProduct = warehouseProducts.find((p) => p.id === selectedProductId) || warehouseProducts[0];
   const isOos = currentProduct.stock === 0;
   const isLowStock = currentProduct.stock > 0 && currentProduct.stock < 15;
 
@@ -240,7 +108,8 @@ export default function OosOrdersPage() {
       restockEta: eta,
     };
 
-    setOrders([newOrder, ...orders]);
+    createRemoteOrder(newOrder);
+    setOrders(getStoredRemoteOrders());
     setToastMessage(`Pesanan tanpa kunjungan ${orderId} berhasil diterbitkan dengan status: ${itemStatus}`);
     setTimeout(() => setToastMessage(''), 5000);
   };
@@ -346,7 +215,7 @@ export default function OosOrdersPage() {
                 onChange={(e) => setSelectedOutlet(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium text-slate-800"
               >
-                {OUTLETS.map((o) => (
+                {outlets.map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>
@@ -396,7 +265,7 @@ export default function OosOrdersPage() {
                 onChange={(e) => setSelectedProductId(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium text-slate-800"
               >
-                {WAREHOUSE_PRODUCTS.map((p) => (
+                {warehouseProducts.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} {p.stock === 0 ? '(STOK HABIS / OOS)' : `(Stok: ${p.stock} ${p.unit})`} - Rp{' '}
                     {p.price.toLocaleString('id-ID')}
