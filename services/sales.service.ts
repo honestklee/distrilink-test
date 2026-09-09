@@ -1,6 +1,8 @@
 import salesRepsRaw from '@/data/sales-reps.json';
 import salesPerformanceRaw from '@/data/sales.json';
 import { getStoredItem, setStoredItem, KEYS } from './storage.service';
+import { api } from '@/lib/api';
+
 
 export interface SalesPerson {
   id: string;
@@ -171,4 +173,87 @@ export function registerSalesman(payload: NewSalesmanPayload): SalesPerson {
   setStoredSalesPerformance([newPerformanceItem, ...filteredCurrent]);
 
   return newRep;
+}
+
+// ---------------------------------------------------------------------------
+// DummyJSON Users API integration
+// ---------------------------------------------------------------------------
+
+const USERS_API_CACHE_KEY = 'dummyjson_users_cache';
+const USERS_API_CACHE_TTL = 60 * 60 * 1000; // 1 hour in ms
+
+export interface DummyJsonUserProfile {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  image: string;
+  /** Mapped area — derived from user's city field */
+  area: string;
+}
+
+interface UsersApiCache {
+  timestamp: number;
+  data: DummyJsonUserProfile[];
+}
+
+/**
+ * Fetch users from GET /users on DummyJSON and map to DummyJsonUserProfile.
+ * Results are cached in localStorage for 1 hour.
+ *
+ * Returns the fetched profiles, or null if the request fails.
+ */
+export async function fetchUsersFromAPI(): Promise<DummyJsonUserProfile[] | null> {
+  if (typeof window === 'undefined') return null;
+
+  // Check cache
+  try {
+    const cached = localStorage.getItem(USERS_API_CACHE_KEY);
+    if (cached) {
+      const parsed: UsersApiCache = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < USERS_API_CACHE_TTL) {
+        return parsed.data;
+      }
+    }
+  } catch {
+    // ignore cache read errors
+  }
+
+  try {
+    const response = await api.get<{
+      users: Array<{
+        id: number;
+        username: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string;
+        image: string;
+        address?: { city?: string };
+      }>;
+    }>('/users?limit=30&select=id,username,firstName,lastName,email,phone,image,address');
+
+    const AREA_DEFAULTS = ['Bandung Kota', 'Bandung Barat', 'Cimahi', 'Bandung Timur', 'Soreang'];
+
+    const profiles: DummyJsonUserProfile[] = response.data.users.map((u, idx) => ({
+      id:        u.id,
+      username:  u.username,
+      firstName: u.firstName,
+      lastName:  u.lastName,
+      email:     u.email,
+      phone:     u.phone,
+      image:     u.image,
+      area:      u.address?.city || AREA_DEFAULTS[idx % AREA_DEFAULTS.length],
+    }));
+
+    // Persist to cache
+    const cache: UsersApiCache = { timestamp: Date.now(), data: profiles };
+    localStorage.setItem(USERS_API_CACHE_KEY, JSON.stringify(cache));
+
+    return profiles;
+  } catch {
+    return null;
+  }
 }

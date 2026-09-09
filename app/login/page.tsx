@@ -318,7 +318,7 @@ export default function LoginPage() {
                     Pilih Akun Uji Coba (RBAC & Multi-Wilayah)
                   </span>
                   <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">
-                    LocalStorage RBAC
+                    API + RBAC
                   </span>
                 </div>
 

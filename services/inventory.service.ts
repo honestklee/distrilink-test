@@ -2,6 +2,7 @@ import catalogProductsRaw from '@/data/catalog-products.json';
 import warehouseProductsRaw from '@/data/warehouse-products.json';
 import warehouseStocksRaw from '@/data/warehouse-stocks.json';
 import { getStoredItem, setStoredItem, KEYS } from './storage.service';
+import { api } from '@/lib/api';
 
 export interface CatalogProduct {
   id: string;
@@ -171,4 +172,90 @@ export function deductProductStock(productId: string, qty: number, area?: string
     return p;
   });
   setStoredWarehouseProducts(updatedWhProds);
+}
+
+// ---------------------------------------------------------------------------
+// DummyJSON Product API integration
+// ---------------------------------------------------------------------------
+
+const PRODUCTS_API_CACHE_KEY = 'dummyjson_products_cache';
+const PRODUCTS_API_CACHE_TTL = 60 * 60 * 1000; // 1 hour in ms
+
+interface DummyJsonProduct {
+  id: number;
+  title: string;
+  category: string;
+  price: number;
+  stock: number;
+  thumbnail: string;
+}
+
+interface ProductsApiCache {
+  timestamp: number;
+  data: CatalogProduct[];
+}
+
+/**
+ * Fetch products from GET /products on DummyJSON and map to CatalogProduct.
+ * Results are cached in localStorage for 1 hour to avoid redundant API calls.
+ *
+ * Returns the fetched (and cached) products, or null if the request fails.
+ */
+export async function fetchProductsFromAPI(): Promise<CatalogProduct[] | null> {
+  if (typeof window === 'undefined') return null;
+
+  // Check cache
+  try {
+    const cached = localStorage.getItem(PRODUCTS_API_CACHE_KEY);
+    if (cached) {
+      const parsed: ProductsApiCache = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < PRODUCTS_API_CACHE_TTL) {
+        return parsed.data;
+      }
+    }
+  } catch {
+    // ignore cache read errors
+  }
+
+  try {
+    const response = await api.get<{ products: DummyJsonProduct[] }>(
+      '/products?limit=30&select=id,title,category,price,stock,thumbnail'
+    );
+
+    const products: CatalogProduct[] = response.data.products.map((p) => ({
+      id:       String(p.id),
+      name:     p.title,
+      category: p.category,
+      price:    Math.round(p.price * 15000), // convert USD → IDR (approx)
+      stock:    p.stock,
+      unit:     'pcs',
+    }));
+
+    // Persist to cache
+    const cache: ProductsApiCache = { timestamp: Date.now(), data: products };
+    localStorage.setItem(PRODUCTS_API_CACHE_KEY, JSON.stringify(cache));
+
+    return products;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Merge DummyJSON API products into the local catalog (existing local products
+ * take precedence; API products are appended as extras).
+ * Call this once on page load for the Taking Order / catalog pages.
+ */
+export async function refreshCatalogFromAPI(): Promise<void> {
+  const apiProducts = await fetchProductsFromAPI();
+  if (!apiProducts || apiProducts.length === 0) return;
+
+  const localProducts = getStoredCatalogProducts();
+  const localIds = new Set(localProducts.map((p) => p.id));
+
+  // Append API products that don't clash with local SKUs
+  const extras = apiProducts.filter((p) => !localIds.has(p.id));
+  if (extras.length > 0) {
+    setStoredCatalogProducts([...localProducts, ...extras]);
+  }
 }
