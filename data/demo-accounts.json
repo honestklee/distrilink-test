@@ -1,17 +1,35 @@
 [
   {
     "name": "Emily J.",
-    "username": "emilys",
-    "password": "emilyspass"
+    "username": "spv_bandungkota",
+    "password": "password123",
+    "role": "supervisor",
+    "area": "Bandung Kota",
+    "badge": "SPV Bandung Kota"
   },
   {
     "name": "Michael W.",
-    "username": "michaelw",
-    "password": "michaelwpass"
+    "username": "spv_bandungbarat",
+    "password": "password123",
+    "role": "supervisor",
+    "area": "Bandung Barat",
+    "badge": "SPV Bandung Barat"
   },
   {
     "name": "Sophia B.",
-    "username": "sophiab",
-    "password": "sophiabpass"
+    "username": "spv_cimahi",
+    "password": "password123",
+    "role": "supervisor",
+    "area": "Cimahi",
+    "badge": "SPV Cimahi"
+  },
+  {
+    "name": "Budi Santoso",
+    "username": "sales_budi",
+    "password": "password123",
+    "role": "salesman",
+    "area": "Bandung Kota",
+    "salesmanId": "SLM-001",
+    "badge": "Salesman Lapangan"
   }
 ]
