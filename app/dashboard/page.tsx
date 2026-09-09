@@ -22,8 +22,6 @@ import {
   RotateCcw,
   MapPin,
   Calendar,
-  BarChart3,
-  Building2,
   Package,
   ShieldCheck,
   Check,
@@ -39,14 +37,17 @@ import {
 const SESSION_KEY = 'user_session';
 const emptySubscribe = () => () => {};
 
+type SupervisorConfirmation =
+  | { kind: 'approval'; id: string; action: 'approved' | 'rejected' }
+  | { kind: 'remoteApproval'; order: RemoteOrder; action: 'approved' | 'rejected' }
+  | { kind: 'fulfillment'; orderId: string; status: RemoteOrder['fulfillmentStatus'] };
+
 import {
-  OutletProfile,
   CatalogProduct,
   WarehouseStockItem,
   ApprovalItem,
   SalesOrder,
   getStoredApprovals,
-  getStoredOutletProfiles,
   getStoredWarehouseStocks,
   getStoredCatalogProducts,
   getStoredWarehouseProducts,
@@ -59,35 +60,38 @@ import {
   getStoredVisitLogs,
   normalizeVisitDate,
   updateApprovalStatus,
+  updateSalesOrderFulfillment,
+  getStoredRemoteOrders,
+  updateRemoteOrderProgress,
+  RemoteOrder,
   STORAGE_SYNC_EVENT,
 } from '@/lib/storage';
+import RemoteOrdersMonitor from '@/components/dashboard/RemoteOrdersMonitor';
+import SupervisorNavigation, { SupervisorTab } from '@/components/dashboard/SupervisorNavigation';
 
 export default function DashboardPage() {
   const router = useRouter();
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   // Supervisor Active Tab: 'performance' | 'outlets' | 'stock' | 'approvals' | 'orders'
-  const [activeSupervisorTab, setActiveSupervisorTab] = useState<
-    'performance' | 'outlets' | 'stock' | 'approvals' | 'orders'
-  >('performance');
+  const [activeSupervisorTab, setActiveSupervisorTab] = useState<SupervisorTab>('performance');
 
   const [search, setSearch] = useState('');
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
-  const [outletProfiles, setOutletProfiles] = useState<OutletProfile[]>([]);
   const [warehouseStocks, setWarehouseStocks] = useState<WarehouseStockItem[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
   const [warehouseProducts, setWarehouseProducts] = useState<CatalogProduct[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [remoteOrders, setRemoteOrders] = useState<RemoteOrder[]>([]);
   const [salesList, setSalesList] = useState<SalesData[]>([]);
   const [visitLogs, setVisitLogs] = useState<ReturnType<typeof getStoredVisitLogs>>([]);
   const [periodMonth, setPeriodMonth] = useState('09');
   const [periodYear, setPeriodYear] = useState('2026');
   const [toastMsg, setToastMsg] = useState('');
+  const [pendingConfirmation, setPendingConfirmation] = useState<SupervisorConfirmation | null>(null);
   const [isImportingStocks, setIsImportingStocks] = useState(false);
   const [stockPage, setStockPage] = useState(1);
   const [stockItemsPerPage, setStockItemsPerPage] = useState(5);
-  const [outletPage, setOutletPage] = useState(1);
-  const [outletItemsPerPage, setOutletItemsPerPage] = useState(5);
   const [approvalPage, setApprovalPage] = useState(1);
   const [approvalItemsPerPage, setApprovalItemsPerPage] = useState(5);
   const [orderPage, setOrderPage] = useState(1);
@@ -111,6 +115,7 @@ export default function DashboardPage() {
     sku: '',
     name: '',
     category: 'Sembako',
+    price: '0',
     depoStock: '0',
     safetyStock: '0',
     reorderPoint: '0',
@@ -125,11 +130,11 @@ export default function DashboardPage() {
   useEffect(() => {
     const syncData = () => {
       setApprovals(getStoredApprovals());
-      setOutletProfiles(getStoredOutletProfiles());
       setWarehouseStocks(getStoredWarehouseStocks());
       setCatalogProducts(getStoredCatalogProducts());
       setWarehouseProducts(getStoredWarehouseProducts());
       setSalesOrders(getStoredSalesOrders());
+      setRemoteOrders(getStoredRemoteOrders());
       setSalesList(getStoredSalesPerformance());
       setVisitLogs(getStoredVisitLogs());
     };
@@ -223,26 +228,16 @@ export default function DashboardPage() {
     );
   }, [salesOrders, userArea]);
 
+  const scopedRemoteOrders = useMemo(() => {
+    if (!userArea || userArea === 'All') return remoteOrders;
+    return remoteOrders.filter((order) => !order.area || order.area.toLowerCase() === userArea.toLowerCase());
+  }, [remoteOrders, userArea]);
+
   const orderTotalPages = Math.ceil(scopedSalesOrders.length / orderItemsPerPage) || 1;
   const safeOrderPage = Math.min(orderPage, orderTotalPages) || 1;
   const paginatedSalesOrders = scopedSalesOrders.slice(
     (safeOrderPage - 1) * orderItemsPerPage,
     safeOrderPage * orderItemsPerPage
-  );
-
-  // Territory-scoped Outlet Profiles
-  const scopedOutletProfiles = useMemo(() => {
-    if (!userArea || userArea === 'All') return outletProfiles;
-    return outletProfiles.filter(
-      (p) => !p.area || p.area.toLowerCase() === userArea.toLowerCase()
-    );
-  }, [outletProfiles, userArea]);
-
-  const outletTotalPages = Math.ceil(scopedOutletProfiles.length / outletItemsPerPage) || 1;
-  const safeOutletPage = Math.min(outletPage, outletTotalPages) || 1;
-  const paginatedOutletProfiles = scopedOutletProfiles.slice(
-    (safeOutletPage - 1) * outletItemsPerPage,
-    safeOutletPage * outletItemsPerPage
   );
 
   // Territory-scoped Sales Performance (matching supervisor's assigned area)
@@ -287,6 +282,7 @@ export default function DashboardPage() {
       sku: item.sku,
       name: item.name,
       category: item.category,
+      price: String(product?.price || 0),
       depoStock: String(item.depoStock),
       safetyStock: String(item.safetyStock),
       reorderPoint: String(item.reorderPoint),
@@ -331,6 +327,7 @@ export default function DashboardPage() {
     const safetyStock = Math.max(0, Number(stockForm.safetyStock) || 0);
     const reorderPoint = Math.max(0, Number(stockForm.reorderPoint) || 0);
     const daysOfInventory = Math.max(0, Number(stockForm.daysOfInventory) || 0);
+    const price = Math.max(0, Number(stockForm.price) || 0);
     const status = depoStock === 0 ? 'Habis' : stockForm.status;
 
     try {
@@ -352,13 +349,14 @@ export default function DashboardPage() {
       const nextProduct: CatalogProduct = {
         ...(updatedProduct || {
           id: stockForm.sku.trim() || editingStock.sku,
-          price: 0,
+          price,
           stock: depoStock,
           unit: stockForm.unit.trim() || editingStock.unit,
         }),
         id: stockForm.sku.trim() || editingStock.sku,
         name: stockForm.name.trim(),
         category: stockForm.category.trim(),
+        price,
         stock: depoStock,
         unit: stockForm.unit.trim() || editingStock.unit,
         promo: buildPromo(stockForm.promoType, stockForm.promoValue, stockForm.promoFreeQuantity),
@@ -588,9 +586,49 @@ export default function DashboardPage() {
   };
 
   const handleApprovalAction = (id: string, action: 'approved' | 'rejected') => {
-    updateApprovalStatus(id, action);
-    const text = action === 'approved' ? 'disetujui' : 'ditolak';
-    setToastMsg(`Pengajuan ${id} berhasil ${text} oleh Supervisor dan data terkait telah disinkronkan!`);
+    setPendingConfirmation({ kind: 'approval', id, action });
+  };
+  
+  const handleFulfillmentAction = (
+    orderId: string,
+    fulfillmentStatus: SalesOrder['fulfillmentStatus'],
+    label: string
+  ) => {
+    void label;
+    setPendingConfirmation({ kind: 'fulfillment', orderId, status: fulfillmentStatus });
+  };
+
+  const handleRemoteApproval = (order: RemoteOrder, action: 'approved' | 'rejected') => {
+    setPendingConfirmation({ kind: 'remoteApproval', order, action });
+  };
+
+  const handleRemoteFulfillment = (order: RemoteOrder, status: RemoteOrder['fulfillmentStatus']) => {
+    setPendingConfirmation({ kind: 'fulfillment', orderId: order.id, status });
+  };
+
+  const confirmPendingAction = () => {
+    if (!pendingConfirmation) return;
+
+    if (pendingConfirmation.kind === 'approval') {
+      updateApprovalStatus(pendingConfirmation.id, pendingConfirmation.action);
+      setToastMsg(`Pengajuan ${pendingConfirmation.id} berhasil dikonfirmasi.`);
+    } else if (pendingConfirmation.kind === 'remoteApproval') {
+      const approval = getStoredApprovals().find((item) => item.orderId === pendingConfirmation.order.id);
+      if (approval) updateApprovalStatus(approval.id, pendingConfirmation.action);
+      else updateRemoteOrderProgress(pendingConfirmation.order.id, {
+        supervisorStatus: pendingConfirmation.action === 'approved' ? 'Disetujui' : 'Ditolak',
+      });
+      setToastMsg(`${pendingConfirmation.order.id} berhasil dikonfirmasi.`);
+    } else {
+      updateRemoteOrderProgress(pendingConfirmation.orderId, {
+        paymentStatus: 'Sudah Dibayar',
+        fulfillmentStatus: pendingConfirmation.status,
+      });
+      updateSalesOrderFulfillment(pendingConfirmation.orderId, pendingConfirmation.status);
+      setToastMsg(`${pendingConfirmation.orderId} berhasil diperbarui.`);
+    }
+
+    setPendingConfirmation(null);
     setTimeout(() => setToastMsg(''), 4500);
   };
 
@@ -612,6 +650,31 @@ export default function DashboardPage() {
         <div className="fixed top-20 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <p className="text-xs font-semibold">{toastMsg}</p>
+        </div>
+      )}
+
+      {pendingConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-700"><ShieldCheck className="w-5 h-5" /></div>
+              <div>
+                <h2 className="font-bold text-slate-900">Konfirmasi Kedua</h2>
+                <p className="text-xs text-slate-500 mt-1">Pastikan tindakan supervisor berikut sudah benar sebelum data diperbarui.</p>
+              </div>
+            </div>
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm font-bold text-amber-900">
+              {pendingConfirmation.kind === 'approval'
+                ? `Konfirmasi ${pendingConfirmation.action === 'approved' ? 'persetujuan' : 'penolakan'} tiket ${pendingConfirmation.id}?`
+                : pendingConfirmation.kind === 'remoteApproval'
+                ? `Konfirmasi pesanan ${pendingConfirmation.order.id} ${pendingConfirmation.action === 'approved' ? 'disetujui' : 'ditolak'}?`
+                : `Konfirmasi status ${pendingConfirmation.status} untuk ${pendingConfirmation.orderId}?`}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setPendingConfirmation(null)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 cursor-pointer">Batal</button>
+              <button type="button" onClick={confirmPendingAction} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"><Check className="w-4 h-4 inline mr-1" />Konfirmasi Sekali Lagi</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -701,86 +764,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Supervisor Navigation Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveSupervisorTab('performance')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeSupervisorTab === 'performance'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>1. Analisa Performa Salesman</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSupervisorTab('outlets')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeSupervisorTab === 'outlets'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>2. Profil & Audit Outlet 360°</span>
-          {scopedOutletProfiles.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-              {scopedOutletProfiles.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSupervisorTab('stock')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeSupervisorTab === 'stock'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>3. Monitoring Stok Gudang & Depo</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSupervisorTab('approvals')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeSupervisorTab === 'approvals'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>4. Meja Persetujuan Supervisi</span>
-          {pendingApprovalsCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-rose-500 text-white animate-pulse">
-              {pendingApprovalsCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSupervisorTab('orders')}
-          className={`px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeSupervisorTab === 'orders'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <ShoppingCart className="w-4 h-4" />
-          <span>5. Monitoring Pesanan Masuk (Live PO SAP)</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700">
-            {scopedSalesOrders.length}
-          </span>
-        </button>
-      </div>
+      <SupervisorNavigation
+        activeTab={activeSupervisorTab}
+        onTabChange={setActiveSupervisorTab}
+        outletCount={scopedRemoteOrders.length}
+        pendingApprovalCount={pendingApprovalsCount}
+        orderCount={scopedSalesOrders.length}
+      />
 
       {/* ========================================================================= */}
       {/* TAB 1: ANALISA PERFORMA SALESMAN (Original Core Features) */}
@@ -899,163 +889,12 @@ export default function DashboardPage() {
       {/* TAB 2: PROFIL & AUDIT OUTLET 360° */}
       {/* ========================================================================= */}
       {activeSupervisorTab === 'outlets' && (
-        <div className="space-y-6">
-          {/* Quick Metrics for Outlets */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Total Limit Kredit Diberikan</span>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1">
-                Rp {scopedOutletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0).toLocaleString('id-ID')}
-              </p>
-              <p className="text-[11px] text-emerald-600 mt-1">Terbagi ke {scopedOutletProfiles.length} Outlet Binaan ({user?.area || 'Cabang'})</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Total Piutang Berjalan (Outstanding)</span>
-              <p className="text-2xl font-extrabold text-blue-600 mt-1">
-                Rp {scopedOutletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0).toLocaleString('id-ID')}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Utilisasi: {scopedOutletProfiles.length > 0 ? (
-                  (
-                    (scopedOutletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0) /
-                      (scopedOutletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0) || 1)) *
-                    100
-                  ).toFixed(1)
-                ) : 0}% (Aman)
-              </p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Kepatuhan Pembayaran Rata-rata</span>
-              <p className="text-2xl font-extrabold text-emerald-600 mt-1">
-                {scopedOutletProfiles.length > 0
-                  ? (
-                      scopedOutletProfiles.reduce((acc, c) => acc + c.paymentCompliancePercent, 0) /
-                      scopedOutletProfiles.length
-                    ).toFixed(1)
-                  : 0}%
-              </p>
-              <p className="text-[11px] text-amber-600 mt-1">
-                {scopedOutletProfiles.filter((p) => p.auditStatus === 'Over Limit').length} Toko Melebihi Plafon
-              </p>
-            </div>
-          </div>
-
-          {/* Outlets Profiling Table */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-blue-600" />
-                  <span>Daftar Profil Finansial & Audit Outlet ({scopedOutletProfiles.length})</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Supervisor memantau batas limit kredit, riwayat piutang berjalan, dan tingkat kepatuhan tempo toko di wilayah {user?.area}
-                </p>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 rounded-full text-slate-600">
-                Wilayah: {user?.area || 'Semua'}
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold">
-                  <tr>
-                    <th className="p-3.5">Nama Toko / Outlet</th>
-                    <th className="p-3.5">Wilayah & Kategori</th>
-                    <th className="p-3.5 text-right">Plafon Kredit</th>
-                    <th className="p-3.5 text-right">Piutang Aktif</th>
-                    <th className="p-3.5 text-center">Kepatuhan TOP</th>
-                    <th className="p-3.5 text-center">Skor Risiko</th>
-                    <th className="p-3.5 text-center">Status Audit</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {scopedOutletProfiles.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">
-                        Belum ada profil outlet di wilayah {user?.area}. Saat outlet baru diverifikasi, profil audit finansialnya akan tercatat di sini.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedOutletProfiles.map((item) => {
-                      const isOverLimit = item.auditStatus === 'Over Limit';
-                      const isWarning = item.auditStatus === 'Perlu Follow-up';
-                      return (
-                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                          <td className="p-3.5">
-                            <p className="font-bold text-slate-900">{item.name}</p>
-                            <p className="text-[10px] text-slate-400">
-                              {item.id} • Pemilik: {item.owner}
-                            </p>
-                          </td>
-
-                        <td className="p-3.5">
-                          <span className="font-medium text-slate-800">{item.category}</span>
-                          <span className="block text-[10px] text-slate-400">{item.area}</span>
-                        </td>
-
-                        <td className="p-3.5 text-right font-medium text-slate-700">
-                          Rp {item.creditLimitRp.toLocaleString('id-ID')}
-                        </td>
-
-                        <td className="p-3.5 text-right font-bold text-slate-900">
-                          Rp {item.currentReceivableRp.toLocaleString('id-ID')}
-                        </td>
-
-                        <td className="p-3.5 text-center font-bold text-slate-800">
-                          {item.paymentCompliancePercent}%
-                        </td>
-
-                        <td className="p-3.5 text-center">
-                          <span
-                            className={`inline-block w-6 h-6 rounded-full text-[11px] font-extrabold leading-6 ${
-                              item.riskGrade === 'A'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : item.riskGrade === 'B'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {item.riskGrade}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5 text-center">
-                          <span
-                            className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                              isOverLimit
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : isWarning
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}
-                          >
-                            {item.auditStatus}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-              </table>
-            </div>
-            <Pagination
-              currentPage={safeOutletPage}
-              totalPages={outletTotalPages}
-              totalItems={scopedOutletProfiles.length}
-              itemsPerPage={outletItemsPerPage}
-              onPageChange={setOutletPage}
-              onItemsPerPageChange={(items) => {
-                setOutletItemsPerPage(items);
-                setOutletPage(1);
-              }}
-            />
-          </div>
-        </div>
+        <RemoteOrdersMonitor
+          orders={scopedRemoteOrders}
+          area={userArea || 'Semua Wilayah'}
+          onApproval={handleRemoteApproval}
+          onFulfillment={handleRemoteFulfillment}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -1154,6 +993,7 @@ export default function DashboardPage() {
                   <tr>
                     <th className="p-3.5">SKU & Nama Produk</th>
                     <th className="p-3.5">Kategori</th>
+                    <th className="p-3.5 text-right">Harga Satuan</th>
                     <th className="p-3.5 text-center">Stok Fisik Depo</th>
                     <th className="p-3.5 text-center">Safety Stock</th>
                     <th className="p-3.5 text-center">Reorder Point (ROP)</th>
@@ -1177,6 +1017,10 @@ export default function DashboardPage() {
                           <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-700 font-medium">
                             {item.category}
                           </span>
+                        </td>
+
+                        <td className="p-3.5 text-right font-bold text-blue-700 whitespace-nowrap">
+                          Rp {(catalogProducts.find((product) => product.id === item.sku || product.name === item.name)?.price || 0).toLocaleString('id-ID')}
                         </td>
 
                         <td className="p-3.5 text-center">
@@ -1281,6 +1125,18 @@ export default function DashboardPage() {
                       </label>
                     ))}
                   </div>
+
+                  <label className="block font-semibold text-slate-700">
+                    Harga Satuan (Rp)
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={stockForm.price}
+                      onChange={(event) => setStockForm((current) => ({ ...current, price: event.target.value }))}
+                      className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500"
+                    />
+                  </label>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
@@ -1776,6 +1632,11 @@ export default function DashboardPage() {
                               {isRejected && <AlertTriangle className="w-3 h-3 text-rose-600" />}
                               <span>{order.status}</span>
                             </span>
+                            {order.fulfillmentStatus && (
+                              <span className="block text-[10px] text-blue-700 font-semibold mt-1">
+                                Gudang: {order.fulfillmentStatus}
+                              </span>
+                            )}
                           </td>
 
                           <td className="p-3.5 text-center whitespace-nowrap">
@@ -1798,9 +1659,40 @@ export default function DashboardPage() {
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-[11px] text-slate-400 font-medium">
-                                Selesai Diotorisasi
-                              </span>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {order.fulfillmentStatus === 'Menunggu Penanganan Gudang' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFulfillmentAction(order.id, 'Sudah Ditangani Gudang', 'Sudah Ditangani Gudang')}
+                                    className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                                  >
+                                    Tandai Ditangani Gudang
+                                  </button>
+                                )}
+                                {order.fulfillmentStatus === 'Sudah Ditangani Gudang' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFulfillmentAction(order.id, 'Dikirim ke Outlet', 'Dikirim ke Outlet')}
+                                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                                  >
+                                    Tandai Dikirim
+                                  </button>
+                                )}
+                                {order.fulfillmentStatus === 'Dikirim ke Outlet' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFulfillmentAction(order.id, 'Selesai', 'Selesai Diterima Outlet')}
+                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                                  >
+                                    Tandai Selesai
+                                  </button>
+                                )}
+                                {!order.fulfillmentStatus && (
+                                  <span className="text-[11px] text-slate-400 font-medium">
+                                    Menunggu proses gudang
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                         </tr>

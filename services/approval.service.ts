@@ -2,7 +2,7 @@ import initialApprovalsRaw from '@/data/approvals.json';
 import { getStoredItem, setStoredItem, KEYS } from './storage.service';
 import { OutletItem, OutletProfile, getStoredOutlets, setStoredOutlets, getStoredOutletProfiles, setStoredOutletProfiles } from './outlet.service';
 import { ReturItem, getStoredReturHistory, setStoredReturHistory } from './retur.service';
-import { SalesOrder, SalesOrderItem, getStoredSalesOrders, setStoredSalesOrders } from './order.service';
+import { SalesOrder, SalesOrderItem, getStoredSalesOrders, setStoredSalesOrders, getStoredRemoteOrders, updateRemoteOrderProgress } from './order.service';
 import { deductProductStock } from './inventory.service';
 import { addActivityLogItem } from './tracking.service';
 import { DEMO_CURRENT_DATE, DEMO_DEFAULT_AREA, DEMO_SUBMITTER } from '@/data/demo-config';
@@ -283,6 +283,8 @@ export function updateApprovalStatus(id: string, action: 'approved' | 'rejected'
             action === 'approved'
               ? ('Disetujui & Siap Kirim' as const)
               : ('Ditolak Supervisor' as const),
+          fulfillmentStatus:
+            action === 'approved' ? ('Menunggu Penanganan Gudang' as const) : o.fulfillmentStatus,
         };
       }
       return o;
@@ -296,9 +298,11 @@ export function updateApprovalStatus(id: string, action: 'approved' | 'rejected'
           targetApproval?.title.includes(o.id)
       );
       if (targetOrder) {
-        targetOrder.items.forEach((item) => {
-          deductProductStock(item.productId, item.qty, targetOrder.area);
-        });
+        if (!targetOrder.notes?.includes('Backorder Menunggu Pasokan')) {
+          targetOrder.items.forEach((item) => {
+            deductProductStock(item.productId, item.qty, targetOrder.area);
+          });
+        }
 
         const profiles = getStoredOutletProfiles();
         const cleanName = targetOrder.outletName.split(' - ')[0];
@@ -317,6 +321,14 @@ export function updateApprovalStatus(id: string, action: 'approved' | 'rejected'
         });
         setStoredOutletProfiles(updatedProfiles);
       }
+    }
+
+    const remoteOrder = getStoredRemoteOrders().find((order) => order.id === targetApproval?.orderId);
+    if (remoteOrder) {
+      updateRemoteOrderProgress(remoteOrder.id, {
+        supervisorStatus: action === 'approved' ? 'Disetujui' : 'Ditolak',
+        fulfillmentStatus: action === 'approved' ? 'Menunggu Penanganan Gudang' : undefined,
+      });
     }
   }
 }

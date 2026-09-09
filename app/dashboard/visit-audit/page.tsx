@@ -5,10 +5,13 @@ import Cookies from 'js-cookie';
 import { CalendarDays, ClipboardCheck, MapPin, Search, UserCheck } from 'lucide-react';
 import {
   getStoredVisitLogs,
+  getStoredOutletProfiles,
+  OutletProfile,
   normalizeVisitDate,
   STORAGE_SYNC_EVENT,
   OutletVisitLog,
 } from '@/lib/storage';
+import OutletProfilesAudit from '@/components/dashboard/OutletProfilesAudit';
 import { UserSession } from '@/types/auth';
 
 const SESSION_KEY = 'user_session';
@@ -18,6 +21,8 @@ const pageSize = 8;
 export default function VisitAuditPage() {
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [visitLogs, setVisitLogs] = useState<OutletVisitLog[]>([]);
+  const [outletProfiles, setOutletProfiles] = useState<OutletProfile[]>([]);
+  const [activeAuditTab, setActiveAuditTab] = useState<'visits' | 'profiles'>('visits');
   const [search, setSearch] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +41,10 @@ export default function VisitAuditPage() {
   const activeArea = user?.area || 'All';
 
   useEffect(() => {
-    const syncData = () => setVisitLogs(getStoredVisitLogs());
+    const syncData = () => {
+      setVisitLogs(getStoredVisitLogs());
+      setOutletProfiles(getStoredOutletProfiles());
+    };
     syncData();
     window.addEventListener(STORAGE_SYNC_EVENT, syncData);
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
@@ -47,6 +55,11 @@ export default function VisitAuditPage() {
       (log) => activeArea === 'All' || log.area.toLowerCase() === activeArea.toLowerCase()
     );
   }, [activeArea, visitLogs]);
+
+  const scopedOutletProfiles = useMemo(
+    () => outletProfiles.filter((profile) => activeArea === 'All' || profile.area.toLowerCase() === activeArea.toLowerCase()),
+    [activeArea, outletProfiles]
+  );
 
   const dateFilteredVisitLogs = useMemo(() => {
     return scopedVisitLogs.filter(
@@ -107,6 +120,19 @@ export default function VisitAuditPage() {
         </span>
       </div>
 
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto">
+        <button type="button" onClick={() => setActiveAuditTab('visits')} className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap cursor-pointer ${activeAuditTab === 'visits' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>
+          <UserCheck className="w-3.5 h-3.5 inline mr-1.5" /> Audit Kunjungan Salesman
+        </button>
+        <button type="button" onClick={() => setActiveAuditTab('profiles')} className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap cursor-pointer ${activeAuditTab === 'profiles' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>
+          Profil Finansial & Audit Outlet ({scopedOutletProfiles.length})
+        </button>
+      </div>
+
+      {activeAuditTab === 'profiles' ? (
+        <OutletProfilesAudit profiles={scopedOutletProfiles} area={activeArea} />
+      ) : (
+      <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
           <p className="text-xs text-slate-500">Total Kunjungan Tercatat</p>
@@ -246,6 +272,8 @@ export default function VisitAuditPage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </main>
   );
 }

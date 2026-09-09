@@ -48,8 +48,10 @@ export {
   type RemoteOrder,
   getStoredSalesOrders,
   setStoredSalesOrders,
+  updateSalesOrderFulfillment,
   getStoredRemoteOrders,
   setStoredRemoteOrders,
+  updateRemoteOrderProgress,
   createRemoteOrder,
 } from '@/services/order.service';
 

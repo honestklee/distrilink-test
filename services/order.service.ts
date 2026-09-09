@@ -25,6 +25,7 @@ export interface SalesOrder {
   totalRp: number;
   bonusItems: string[];
   status: 'Menunggu Persetujuan Supervisor' | 'Disetujui & Siap Kirim' | 'Ditolak Supervisor';
+  fulfillmentStatus?: 'Menunggu Penanganan Gudang' | 'Sudah Ditangani Gudang' | 'Dikirim ke Outlet' | 'Selesai';
   approvalId?: string;
   notes?: string;
   area?: string;
@@ -48,6 +49,10 @@ export interface RemoteOrder {
   date: string;
   status: 'Siap Kirim' | 'Substitusi Diterapkan' | 'Backorder Menunggu Pasokan';
   restockEta?: string;
+  awaitingSupervisorApproval?: boolean;
+  supervisorStatus?: 'Menunggu Persetujuan' | 'Disetujui' | 'Ditolak';
+  paymentStatus?: 'Menunggu Konfirmasi' | 'Sudah Dibayar';
+  fulfillmentStatus?: 'Menunggu Penanganan Gudang' | 'Sudah Ditangani Gudang' | 'Dikirim ke Outlet' | 'Selesai';
 }
 
 export function getStoredSalesOrders(): SalesOrder[] {
@@ -71,23 +76,48 @@ export function createRemoteOrder(newOrder: RemoteOrder): void {
   setStoredRemoteOrders([newOrder, ...currentOrders]);
 
   // Deduct stock if not backorder
-  if (newOrder.status !== 'Backorder Menunggu Pasokan') {
+  if (!newOrder.awaitingSupervisorApproval && newOrder.status !== 'Backorder Menunggu Pasokan') {
     newOrder.items.forEach((item) => {
       deductProductStock(item.productId, item.qty, newOrder.area);
     });
   }
 
   // Update outlet receivable
-  const profiles = getStoredOutletProfiles();
-  const updatedProfiles = profiles.map((p) => {
-    if (p.name.toLowerCase().includes(newOrder.outletName.toLowerCase())) {
-      return {
-        ...p,
-        currentReceivableRp: p.currentReceivableRp + newOrder.totalRp,
-        lastOrderDate: DEMO_CURRENT_DATE,
-      };
-    }
-    return p;
-  });
-  setStoredOutletProfiles(updatedProfiles);
+  if (!newOrder.awaitingSupervisorApproval) {
+    const profiles = getStoredOutletProfiles();
+    const updatedProfiles = profiles.map((p) => {
+      if (p.name.toLowerCase().includes(newOrder.outletName.toLowerCase())) {
+        return {
+          ...p,
+          currentReceivableRp: p.currentReceivableRp + newOrder.totalRp,
+          lastOrderDate: DEMO_CURRENT_DATE,
+        };
+      }
+      return p;
+    });
+    setStoredOutletProfiles(updatedProfiles);
+  }
+}
+
+export function updateSalesOrderFulfillment(
+  orderId: string,
+  fulfillmentStatus: SalesOrder['fulfillmentStatus']
+): void {
+  if (!fulfillmentStatus) return;
+  setStoredSalesOrders(
+    getStoredSalesOrders().map((order) =>
+      order.id === orderId ? { ...order, fulfillmentStatus } : order
+    )
+  );
+}
+
+export function updateRemoteOrderProgress(
+  orderId: string,
+  updates: Pick<RemoteOrder, 'supervisorStatus' | 'paymentStatus' | 'fulfillmentStatus'>
+): void {
+  setStoredRemoteOrders(
+    getStoredRemoteOrders().map((order) =>
+      order.id === orderId ? { ...order, ...updates } : order
+    )
+  );
 }

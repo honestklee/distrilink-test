@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import Cookies from 'js-cookie';
 import {
   PackageX,
   PhoneCall,
@@ -13,28 +14,39 @@ import {
   Send,
 } from 'lucide-react';
 
-import warehouseProductsRaw from '@/data/warehouse-products.json';
 import initialRemoteOrdersRaw from '@/data/remote-orders.json';
-import outletsList from '@/data/outlets-list.json';
 import {
   getStoredRemoteOrders,
   createRemoteOrder,
   getStoredOutletOptions,
-  getStoredWarehouseProducts,
+  getStoredCatalogProducts,
+  getStoredWarehouseStocks,
+  recordOrderCheckout,
   STORAGE_SYNC_EVENT,
   RemoteOrder,
   CatalogProduct,
 } from '@/lib/storage';
 import Pagination from '@/components/dashboard/Pagination';
+import { UserSession } from '@/types/auth';
+
+const emptySubscribe = () => () => {};
+const EMPTY_PRODUCT: CatalogProduct = {
+  id: '',
+  name: 'Memuat produk...',
+  category: '',
+  price: 0,
+  stock: 0,
+  unit: 'pcs',
+};
 
 export default function OosOrdersPage() {
   const [orders, setOrders] = useState<RemoteOrder[]>(initialRemoteOrdersRaw as RemoteOrder[]);
-  const [outlets, setOutlets] = useState<string[]>(outletsList);
-  const [warehouseProducts, setWarehouseProducts] = useState<CatalogProduct[]>(warehouseProductsRaw as CatalogProduct[]);
-  const [selectedOutlet, setSelectedOutlet] = useState<string>(outletsList[0]);
+  const [outlets, setOutlets] = useState<string[]>([]);
+  const [warehouseProducts, setWarehouseProducts] = useState<CatalogProduct[]>([]);
+  const [selectedOutlet, setSelectedOutlet] = useState('');
   const [channel, setChannel] = useState<'WhatsApp' | 'Telepon' | 'Portal B2B' | 'Darurat'>('WhatsApp');
   const [nonVisitReason, setNonVisitReason] = useState('Toko memesan darurat di luar jadwal rute regular');
-  const [selectedProductId, setSelectedProductId] = useState<string>(warehouseProductsRaw[1].id); // Pandan wangi (OOS to show feature!)
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [orderQty, setOrderQty] = useState(5);
   const [oosActionChoice, setOosActionChoice] = useState<'substitute' | 'backorder'>('substitute');
   const [toastMessage, setToastMessage] = useState('');
@@ -44,11 +56,45 @@ export default function OosOrdersPage() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Load and listen to reactive storage updates
+  const salesmanArea = useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      const session = Cookies.get('user_session');
+      if (!session) return '';
+      try {
+        return (JSON.parse(session) as UserSession).area || '';
+      } catch {
+        return '';
+      }
+    },
+    () => ''
+  );
+
   useEffect(() => {
     const syncData = () => {
       const storedOrders = getStoredRemoteOrders();
-      const storedOutlets = getStoredOutletOptions();
-      const storedProducts = getStoredWarehouseProducts();
+      const storedOutlets = getStoredOutletOptions(salesmanArea);
+      const catalogProducts = getStoredCatalogProducts();
+      const productsById = new Map(catalogProducts.map((product) => [product.id, product]));
+      const productsByName = new Map(
+        catalogProducts.map((product) => [product.name.trim().toLowerCase(), product])
+      );
+      const storedProducts = getStoredWarehouseStocks()
+        .filter((stock) => !salesmanArea || stock.area.toLowerCase() === salesmanArea.toLowerCase())
+        .map((stock) => {
+          const product = productsById.get(stock.sku) || productsByName.get(stock.name.trim().toLowerCase());
+          return {
+            id: stock.sku,
+            name: stock.name,
+            category: stock.category,
+            price: product?.price || 0,
+            stock: stock.depoStock,
+            unit: stock.unit,
+            substituteId: product?.substituteId,
+            substituteName: product?.substituteName,
+            promo: product?.promo,
+          } satisfies CatalogProduct;
+        });
 
       setOrders(storedOrders);
       setOutlets(storedOutlets);
@@ -57,16 +103,28 @@ export default function OosOrdersPage() {
       setSelectedOutlet((prev) =>
         !storedOutlets.includes(prev) && storedOutlets.length > 0 ? storedOutlets[0] : prev
       );
+      setSelectedProductId((prev) =>
+        !storedProducts.some((product) => product.id === prev) && storedProducts.length > 0
+          ? storedProducts[0].id
+          : prev
+      );
     };
 
     syncData();
     window.addEventListener(STORAGE_SYNC_EVENT, syncData);
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
-  }, []);
+  }, [salesmanArea]);
 
-  const currentProduct = warehouseProducts.find((p) => p.id === selectedProductId) || warehouseProducts[0];
-  const isOos = currentProduct.stock === 0;
-  const isLowStock = currentProduct.stock > 0 && currentProduct.stock < 15;
+  const currentProduct = useMemo(
+    () => warehouseProducts.find((p) => p.id === selectedProductId) || warehouseProducts[0] || EMPTY_PRODUCT,
+    [selectedProductId, warehouseProducts]
+  );
+  const isOos = Boolean(currentProduct.id) && currentProduct.stock === 0;
+  const isLowStock = Boolean(currentProduct.id) && currentProduct.stock > 0 && currentProduct.stock < 15;
+  const availableOutlets = Array.isArray(outlets) ? outlets.filter(Boolean) : [];
+  const availableProducts = Array.isArray(warehouseProducts)
+    ? warehouseProducts.filter((product): product is CatalogProduct => Boolean(product?.id))
+    : [];
 
   // KPI calculations
   const totalRemoteCount = orders.length;
@@ -76,6 +134,7 @@ export default function OosOrdersPage() {
 
   const handleSubmitRemoteOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedOutlet || !currentProduct.id) return;
 
     const orderId = `RMT-2026-00${orders.length + 1}`;
     let itemStatus: 'Siap Kirim' | 'Substitusi Diterapkan' | 'Backorder Menunggu Pasokan' = 'Siap Kirim';
@@ -112,8 +171,28 @@ export default function OosOrdersPage() {
       date: '07 Sep 2026 (Hari Ini)',
       status: itemStatus,
       restockEta: eta,
+      awaitingSupervisorApproval: true,
+      supervisorStatus: 'Menunggu Persetujuan',
+      paymentStatus: 'Menunggu Konfirmasi',
     };
 
+    recordOrderCheckout({
+      orderId,
+      outletName: selectedOutlet,
+      paymentTerm: 'COD',
+      grandTotal: newOrder.totalRp,
+      items: [
+        {
+          productId: currentProduct.id,
+          productName: currentProduct.name,
+          qty: orderQty,
+          price: currentProduct.price,
+          subtotal: currentProduct.price * orderQty,
+          unit: currentProduct.unit,
+        },
+      ],
+      notes: isOos ? `Pesanan OOS: ${itemStatus}` : 'Pesanan tanpa kunjungan',
+    });
     createRemoteOrder(newOrder);
     setOrders(getStoredRemoteOrders());
     setToastMessage(`Pesanan tanpa kunjungan ${orderId} berhasil diterbitkan dengan status: ${itemStatus}`);
@@ -227,11 +306,17 @@ export default function OosOrdersPage() {
                 onChange={(e) => setSelectedOutlet(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium text-slate-800"
               >
-                {outlets.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
+                {availableOutlets.length > 0 ? (
+                  availableOutlets.map((outlet) => (
+                    <option key={outlet} value={outlet}>
+                      {outlet}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    Tidak ada outlet terverifikasi di wilayah salesman
                   </option>
-                ))}
+                )}
               </select>
             </div>
 
@@ -277,12 +362,19 @@ export default function OosOrdersPage() {
                 onChange={(e) => setSelectedProductId(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium text-slate-800"
               >
-                {warehouseProducts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.stock === 0 ? '(STOK HABIS / OOS)' : `(Stok: ${p.stock} ${p.unit})`} - Rp{' '}
-                    {p.price.toLocaleString('id-ID')}
+                {availableProducts.length > 0 ? (
+                  availableProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}{' '}
+                      {product.stock === 0 ? '(STOK HABIS / OOS)' : `(Stok: ${product.stock} ${product.unit})`} - Rp{' '}
+                      {product.price.toLocaleString('id-ID')}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    Tidak ada stok produk di wilayah salesman
                   </option>
-                ))}
+                )}
               </select>
             </div>
 
@@ -386,6 +478,7 @@ export default function OosOrdersPage() {
 
             <button
               type="submit"
+              disabled={!selectedOutlet || !currentProduct.id}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition cursor-pointer flex items-center justify-center gap-2"
             >
               <Send className="w-4 h-4" />

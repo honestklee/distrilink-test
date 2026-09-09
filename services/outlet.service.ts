@@ -50,9 +50,13 @@ export function setStoredOutletProfiles(profiles: OutletProfile[]): void {
   setStoredItem(KEYS.OUTLET_PROFILES, profiles);
 }
 
-export function getStoredOutletOptions(): string[] {
+export function getStoredOutletOptions(area?: string): string[] {
   const outlets = getStoredOutlets();
   return outlets
-    .filter((o) => o.status === 'Verified')
+    .filter(
+      (o) =>
+        o.status === 'Verified' &&
+        (!area || area === 'All' || o.area.toLowerCase() === area.toLowerCase())
+    )
     .map((o) => `${o.name} - ${o.area}`);
 }

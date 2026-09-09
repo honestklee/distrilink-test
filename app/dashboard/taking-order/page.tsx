@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useSyncExternalStore } from 'react';
+import Cookies from 'js-cookie';
 import {
   ShoppingCart,
   RotateCcw,
@@ -39,6 +40,9 @@ import {
   STORAGE_SYNC_EVENT,
 } from '@/lib/storage';
 import Pagination from '@/components/dashboard/Pagination';
+import { UserSession } from '@/types/auth';
+
+const emptySubscribe = () => () => {};
 
 interface OrderReceipt {
   orderId: string;
@@ -96,13 +100,27 @@ export default function TakingOrderPage() {
   const [orderHistoryPage, setOrderHistoryPage] = useState(1);
   const [orderHistoryItemsPerPage, setOrderHistoryItemsPerPage] = useState(5);
 
-  const selectedArea = selectedOutlet.split(' - ')[1] || 'Bandung Kota';
+  const salesmanArea = useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      const session = Cookies.get('user_session');
+      if (!session) return '';
+      try {
+        return (JSON.parse(session) as UserSession).area || '';
+      } catch {
+        return '';
+      }
+    },
+    () => ''
+  );
+
+  const selectedArea = salesmanArea || selectedOutlet.split(' - ')[1] || 'Bandung Kota';
 
   useEffect(() => {
     const syncData = () => {
-      const opts = getStoredOutletOptions();
+      const opts = getStoredOutletOptions(salesmanArea);
       setOutletOptions(opts);
-      if (!selectedOutlet && opts.length > 0) {
+      if ((!opts.includes(selectedOutlet) || !selectedOutlet) && opts.length > 0) {
         setSelectedOutlet(opts[0]);
       }
       setCatalogProducts(getStoredCatalogProducts());
@@ -114,7 +132,7 @@ export default function TakingOrderPage() {
     syncData();
     window.addEventListener(STORAGE_SYNC_EVENT, syncData);
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
-  }, [selectedOutlet]);
+  }, [salesmanArea, selectedOutlet]);
 
   const regionalCatalogProducts = useMemo(() => {
     const regionalStocks = warehouseStocks.filter((stock) => stock.area === selectedArea);
@@ -1039,6 +1057,11 @@ export default function TakingOrderPage() {
                               {isRejected && <AlertCircle className="w-3 h-3 text-rose-600" />}
                               <span>{order.status}</span>
                             </span>
+                            {order.fulfillmentStatus && (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
+                                {order.fulfillmentStatus}
+                              </span>
+                            )}
 
                             <button
                               type="button"
@@ -1216,6 +1239,12 @@ export default function TakingOrderPage() {
               <div>
                 <span className="text-slate-400 block text-[10px]">Status Otorisasi:</span>
                 <span className="font-bold text-slate-800">{selectedOrderForDetail.status}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Status Gudang & Pengiriman:</span>
+                <span className="font-bold text-blue-700">
+                  {selectedOrderForDetail.fulfillmentStatus || 'Menunggu persetujuan supervisor'}
+                </span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">Termin Pembayaran:</span>
