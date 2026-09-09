@@ -26,3 +26,12 @@ Dependencies yang digunakan :
 4. Lucide-react
 5. js-cookies
 6. Recharts
+
+Panduan alur website :
+1. Login sebagai supervisor untuk membuat account sales pada menu 'Pendaftaran Salesman'.
+2. Setelah membuat account lakukan Log out terlebih dahulu dan masuk dengan account sales yang sudah dibuat sebelumnya.
+3. Setelah login sebagai sales pergi ke menu 'Geotag & NOO' untuk mendaftarkan outlet di daerah tersebut.
+4. Login kembali sebagai Supervisor dan Accept Request di bagian 'Meja Persetujuan Supervisi'.
+5. Login kembali sebagai Sales pergi ke bagian 'Rute & Live tracking' untuk melakukan Checkin & Checkout yang mana hasil ini akan ditampilkan di Supervisor Account.
+6. Login sebagai Supervisor dan lakukan Import data .csv yang sudah saya sediakan, buka menu 'Monitoring Stok Gudang & Depo' dan lakukan import data.csv disana.
+7. Login sebagai Sales kembali unutk melakukan Taking Order, Retur Barang, dan Juga ketika ingin melakukan Pesanan Tanpa Kunjungan, semua fitur ini tetap harus disetujui oleh Supervisor.
