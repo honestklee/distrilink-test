@@ -23,6 +23,7 @@ import { SalesPerson } from '@/services/sales.service';
 import { STORAGE_SYNC_EVENT } from '@/services/storage.service';
 import Pagination from '@/components/dashboard/Pagination';
 import { UserSession } from '@/types/auth';
+import PageShell from '@/components/dashboard/PageShell';
 
 const SESSION_KEY = 'user_session';
 const emptySubscribe = () => () => {};
@@ -159,7 +160,7 @@ export default function SalesmenPage() {
   };
 
   return (
-    <main className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6 font-sans">
+    <PageShell>
       {/* Toast Alert */}
       {toastMessage && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -630,6 +631,6 @@ export default function SalesmenPage() {
           />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

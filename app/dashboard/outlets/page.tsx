@@ -21,6 +21,7 @@ import {
   STORAGE_SYNC_EVENT,
 } from '@/lib/storage';
 import Pagination from '@/components/dashboard/Pagination';
+import PageShell from '@/components/dashboard/PageShell';
 
 export default function OutletsPage() {
   const [outlets, setOutlets] = useState<OutletItem[]>(getStoredOutlets);
@@ -133,7 +134,7 @@ export default function OutletsPage() {
   );
 
   return (
-    <main className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6 font-sans">
+    <PageShell>
       {/* Top Title Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
         <div>
@@ -489,6 +490,6 @@ export default function OutletsPage() {
           />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

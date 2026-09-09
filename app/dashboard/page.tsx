@@ -68,6 +68,7 @@ import {
 } from '@/lib/storage';
 import RemoteOrdersMonitor from '@/components/dashboard/RemoteOrdersMonitor';
 import SupervisorNavigation, { SupervisorTab } from '@/components/dashboard/SupervisorNavigation';
+import PageShell from '@/components/dashboard/PageShell';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -644,7 +645,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6 font-sans">
+    <PageShell>
       {/* Toast */}
       {toastMsg && (
         <div className="fixed top-20 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
@@ -1716,6 +1717,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }
