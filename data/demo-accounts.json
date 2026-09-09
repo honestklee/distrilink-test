@@ -1,6 +1,6 @@
 [
   {
-    "name": "Emily J.",
+    "name": "Emily Johnson",
     "username": "spv_bandungkota",
     "password": "password123",
     "role": "supervisor",
@@ -8,7 +8,7 @@
     "badge": "SPV Bandung Kota"
   },
   {
-    "name": "Michael W.",
+    "name": "Michael Williams",
     "username": "spv_bandungbarat",
     "password": "password123",
     "role": "supervisor",
@@ -16,7 +16,7 @@
     "badge": "SPV Bandung Barat"
   },
   {
-    "name": "Sophia B.",
+    "name": "Sophia Brown",
     "username": "spv_cimahi",
     "password": "password123",
     "role": "supervisor",

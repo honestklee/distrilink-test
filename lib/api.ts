@@ -8,9 +8,12 @@ export const api = axios.create({
   },
 });
 
-// Inject Authorization header from session cookie/localStorage on every request
+// Inject Authorization header on all requests EXCEPT /auth/* endpoints.
+// DummyJSON's /auth/login rejects requests that carry an existing Bearer token,
+// returning "Access Token is required" even during a fresh login attempt.
 api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
+  const isAuthEndpoint = config.url?.startsWith("/auth/");
+  if (!isAuthEndpoint && typeof window !== "undefined") {
     try {
       const raw =
         document.cookie
