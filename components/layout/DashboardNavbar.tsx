@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
@@ -33,6 +34,7 @@ interface DashboardNavbarProps {
 const PAGE_TITLES: Record<string, { title: string; category: string }> = {
   '/dashboard': { title: 'Monitoring & Supervisi', category: 'Supervisi & Analisa' },
   '/dashboard/consolidator': { title: 'Smart Data Consolidator', category: 'Supervisi & Konsolidasi' },
+  '/dashboard/visit-audit': { title: 'Audit Kunjungan Salesman', category: 'Supervisi & Analisa' },
   '/dashboard/taking-order': { title: 'Taking Order & Promo', category: 'Operasional Sales Lapangan' },
   '/dashboard/outlets': { title: 'Geotag & NOO Outlets', category: 'Operasional Sales Lapangan' },
   '/dashboard/tracking': { title: 'Rute & Live Tracking', category: 'Operasional Sales Lapangan' },
@@ -91,7 +93,7 @@ export default function DashboardNavbar({ onToggleSidebar }: DashboardNavbarProp
               href={user?.role === 'salesman' ? '/dashboard/taking-order' : '/dashboard'}
               className="lg:hidden flex items-center gap-2 shrink-0"
             >
-              <div className="p-1.5 bg-gradient-to-tr from-blue-700 to-blue-500 rounded-xl text-white">
+              <div className="p-1.5 bg-linear-to-tr from-blue-700 to-blue-500 rounded-xl text-white">
                 <BarChart3 className="w-4 h-4" />
               </div>
               <span className="font-bold text-slate-900 text-sm">Distrilink</span>
@@ -189,7 +191,7 @@ export default function DashboardNavbar({ onToggleSidebar }: DashboardNavbarProp
       </div>
 
       {/* Panduan Alur & Role SOP Modal */}
-      {showGuideModal && (
+      {showGuideModal && isClient && createPortal((
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
@@ -334,10 +336,10 @@ export default function DashboardNavbar({ onToggleSidebar }: DashboardNavbarProp
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Reset Data Confirmation Modal */}
-      {showResetModal && (
+      {showResetModal && isClient && createPortal((
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
@@ -377,7 +379,7 @@ export default function DashboardNavbar({ onToggleSidebar }: DashboardNavbarProp
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </header>
   );
 }

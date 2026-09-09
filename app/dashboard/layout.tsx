@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     try {
       const user = JSON.parse(session) as UserSession;
       if (user.role === 'salesman') {
-        const supervisorRoutes = ['/dashboard', '/dashboard/salesmen', '/dashboard/consolidator'];
+        const supervisorRoutes = ['/dashboard', '/dashboard/salesmen', '/dashboard/consolidator', '/dashboard/visit-audit'];
         if (supervisorRoutes.includes(pathname)) {
           router.replace('/dashboard/taking-order');
         }

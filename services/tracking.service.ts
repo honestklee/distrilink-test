@@ -30,6 +30,7 @@ export interface ActivityLogItem {
   time: string;
   salesId?: string;
   salesName?: string;
+  area?: string;
 }
 
 export interface OutletVisitLog {

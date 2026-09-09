@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Layers,
   Building2,
@@ -17,16 +17,38 @@ import {
 } from 'lucide-react';
 
 import branchesRaw from '@/data/branches.json';
+import demoAccountsRaw from '@/data/demo-accounts.json';
 import {
   getStoredBranches,
+  getStoredOutlets,
+  getStoredSalesOrders,
+  getStoredSalesPerformance,
+  getStoredVisitLogs,
+  getStoredWarehouseStocks,
+  normalizeVisitDate,
   setStoredBranches,
   STORAGE_SYNC_EVENT,
   BranchData,
 } from '@/lib/storage';
+import Pagination from '@/components/dashboard/Pagination';
+
+const SUPERVISORS = demoAccountsRaw.filter(
+  (account) => account.role === 'supervisor'
+);
 
 export default function ConsolidatorPage() {
   const [branches, setBranches] = useState<BranchData[]>(branchesRaw as BranchData[]);
+  const [salesPerformance, setSalesPerformance] = useState<ReturnType<typeof getStoredSalesPerformance>>([]);
+  const [outlets, setOutlets] = useState<ReturnType<typeof getStoredOutlets>>([]);
+  const [salesOrders, setSalesOrders] = useState<ReturnType<typeof getStoredSalesOrders>>([]);
+  const [visitLogs, setVisitLogs] = useState<ReturnType<typeof getStoredVisitLogs>>([]);
+  const [warehouseStocks, setWarehouseStocks] = useState<ReturnType<typeof getStoredWarehouseStocks>>([]);
   const [selectedRegion, setSelectedRegion] = useState('All');
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('09');
+  const [selectedYear, setSelectedYear] = useState('2026');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -34,6 +56,11 @@ export default function ConsolidatorPage() {
   useEffect(() => {
     const syncData = () => {
       setBranches(getStoredBranches());
+      setSalesPerformance(getStoredSalesPerformance());
+      setOutlets(getStoredOutlets());
+      setSalesOrders(getStoredSalesOrders());
+      setVisitLogs(getStoredVisitLogs());
+      setWarehouseStocks(getStoredWarehouseStocks());
     };
 
     syncData();
@@ -41,9 +68,77 @@ export default function ConsolidatorPage() {
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
   }, []);
 
+  const matrixRows = useMemo(() => {
+    const westJavaBranch = branches.find((branch) => branch.region === 'Jawa Barat') || branches[0];
+    const periodPrefix = `${selectedYear}-${selectedMonth}`;
+    const selectedDate = selectedDay ? `${periodPrefix}-${selectedDay}` : '';
+    const matchesPeriod = (date: string) => {
+      const normalizedDate = normalizeVisitDate(date);
+      return selectedDate ? normalizedDate === selectedDate : normalizedDate.startsWith(periodPrefix);
+    };
+
+    return SUPERVISORS.map((supervisor) => {
+      const branchSales = salesPerformance.filter((salesman) => salesman.area === supervisor.area);
+      const branchOutlets = outlets.filter((outlet) => outlet.area === supervisor.area);
+      const branchVisits = visitLogs.filter(
+        (visit) => visit.area === supervisor.area && matchesPeriod(visit.date)
+      );
+      const branchOrders = salesOrders.filter(
+        (order) => order.area === supervisor.area && matchesPeriod(order.date)
+      );
+      const branchWarehouseStocks = warehouseStocks.filter(
+        (stock) => stock.area === supervisor.area
+      );
+      const targetOmsetRp = branchSales.reduce(
+        (total, salesman) => total + (salesman.targetOmsetRp || 0),
+        0
+      );
+      const realizationOmsetRp = branchVisits.length
+        ? branchVisits.reduce((total, visit) => total + (Number(visit.orderValueRp) || 0), 0)
+        : branchOrders.reduce((total, order) => total + order.totalRp, 0);
+      const plannedVisits = branchSales.reduce(
+        (total, salesman) => total + salesman.kunjungan_planned,
+        0
+      );
+      const realizedVisits = branchVisits.length;
+      const effectiveness = plannedVisits
+        ? Math.round((realizedVisits / plannedVisits) * 100)
+        : 0;
+
+      return {
+        ...westJavaBranch,
+        id: `SUP-${supervisor.area.replace(/\s+/g, '-').toUpperCase()}`,
+        name: `Hub ${supervisor.area}`,
+        region: supervisor.area,
+        supervisor: supervisor.name,
+        salesTeamCount: branchSales.length,
+        outletsCount: branchOutlets.length,
+        targetOmsetRp,
+        realizationOmsetRp,
+        achievementPercent: effectiveness,
+        oosRatePercent: branchWarehouseStocks.length
+          ? Number(
+              (
+                (branchWarehouseStocks.filter((stock) => stock.status === 'Habis').length /
+                  branchWarehouseStocks.length) *
+                100
+              ).toFixed(1)
+            )
+          : 0,
+      };
+    });
+  }, [branches, outlets, salesOrders, salesPerformance, selectedDay, selectedMonth, selectedYear, visitLogs, warehouseStocks]);
+
   // Consolidated national aggregates
-  const filteredBranches = branches.filter(
+  const filteredBranches = matrixRows.filter(
     (b) => selectedRegion === 'All' || b.region === selectedRegion
+  );
+
+  const totalPages = Math.ceil(filteredBranches.length / itemsPerPage) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages) || 1;
+  const paginatedBranches = filteredBranches.slice(
+    (safeCurrentPage - 1) * itemsPerPage,
+    safeCurrentPage * itemsPerPage
   );
 
   const totalNationalRevenue = filteredBranches.reduce((acc, b) => acc + b.realizationOmsetRp, 0);
@@ -51,9 +146,13 @@ export default function ConsolidatorPage() {
   const nationalAchievement = Math.round((totalNationalRevenue / (totalNationalTarget || 1)) * 100);
   const totalNationalOutlets = filteredBranches.reduce((acc, b) => acc + b.outletsCount, 0);
   const totalNationalSalesForce = filteredBranches.reduce((acc, b) => acc + b.salesTeamCount, 0);
-  const avgOosRate = (
-    filteredBranches.reduce((acc, b) => acc + b.oosRatePercent, 0) / (filteredBranches.length || 1)
-  ).toFixed(1);
+  const visibleWarehouseStocks = selectedRegion === 'All'
+    ? warehouseStocks
+    : warehouseStocks.filter((stock) => stock.area === selectedRegion);
+  const totalOosIncidents = visibleWarehouseStocks.filter((stock) => stock.status === 'Habis').length;
+  const avgOosRate = visibleWarehouseStocks.length
+    ? ((totalOosIncidents / visibleWarehouseStocks.length) * 100).toFixed(1)
+    : '0.0';
 
   const handleSyncAllBranches = () => {
     setIsSyncingAll(true);
@@ -158,22 +257,25 @@ export default function ConsolidatorPage() {
           <span className="font-semibold">Filter Wilayah Regional:</span>
           <select
             value={selectedRegion}
-            onChange={(e) => setSelectedRegion(e.target.value)}
+            onChange={(e) => {
+              setSelectedRegion(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-pointer"
           >
-            <option value="All">Seluruh Indonesia (5 Hub)</option>
-            <option value="Jawa Barat">Jawa Barat</option>
-            <option value="Jabodetabek">Jabodetabek & Banten</option>
-            <option value="Jawa Timur">Jawa Timur</option>
-            <option value="Jawa Tengah">Jawa Tengah</option>
-            <option value="Sumatera">Sumatera</option>
+            <option value="All">Semua Supervisor (3 Wilayah)</option>
+            {SUPERVISORS.map((supervisor) => (
+              <option key={supervisor.area} value={supervisor.area}>
+                {supervisor.area}
+              </option>
+            ))}
           </select>
         </div>
 
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <strong className="text-slate-800 font-semibold">5 dari 5 Cabang Terkoneksi</strong>
+            <strong className="text-slate-800 font-semibold">3 dari 3 Supervisor Terkoneksi</strong>
           </span>
           <span>•</span>
           <span>Rata-rata Latency: <strong className="text-blue-700 font-mono">28ms</strong></span>
@@ -226,12 +328,14 @@ export default function ConsolidatorPage() {
             <AlertTriangle className="w-4 h-4 text-amber-600" />
           </div>
           <p className="text-2xl font-extrabold text-slate-900 mt-1">{avgOosRate}%</p>
-          <p className="text-[11px] text-emerald-600 font-medium mt-1">Di bawah ambang batas toleransi (5%)</p>
+          <p className="text-[11px] text-emerald-600 font-medium mt-1">
+            {totalOosIncidents} dari {visibleWarehouseStocks.length} SKU berstatus Habis
+          </p>
         </div>
       </div>
 
       {/* Automated Smart AI Insights & Cross-Hub Stock Transfer Recommendations */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 shadow-lg border border-slate-800 space-y-3">
+      <div className="bg-linear-to-r from-blue-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 shadow-lg border border-slate-800 space-y-3">
         <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
           <Sparkles className="w-4 h-4" />
           <span>Smart Consolidator AI Insights & Optimasi Antar Cabang</span>
@@ -279,9 +383,61 @@ export default function ConsolidatorPage() {
               Perbandingan pencapaian target, rasio stok kosong, tim sales, dan status sinkronisasi
             </p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
-            Terkonsolidasi Otomatis
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[10px] font-semibold text-slate-500">
+              Tanggal
+              <select
+                value={selectedDay}
+                onChange={(event) => {
+                  setSelectedDay(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="ml-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none"
+                aria-label="Filter tanggal matriks"
+              >
+                <option value="">Semua</option>
+                {Array.from({ length: 31 }, (_, index) => {
+                  const day = String(index + 1).padStart(2, '0');
+                  return <option key={day} value={day}>{day}</option>;
+                })}
+              </select>
+            </label>
+            <label className="text-[10px] font-semibold text-slate-500">
+              Bulan
+              <select
+                value={selectedMonth}
+                onChange={(event) => {
+                  setSelectedMonth(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="ml-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none"
+                aria-label="Filter bulan matriks"
+              >
+                {[
+                  ['01', 'Jan'], ['02', 'Feb'], ['03', 'Mar'], ['04', 'Apr'],
+                  ['05', 'Mei'], ['06', 'Jun'], ['07', 'Jul'], ['08', 'Agu'],
+                  ['09', 'Sep'], ['10', 'Okt'], ['11', 'Nov'], ['12', 'Des'],
+                ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="text-[10px] font-semibold text-slate-500">
+              Tahun
+              <select
+                value={selectedYear}
+                onChange={(event) => {
+                  setSelectedYear(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="ml-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none"
+                aria-label="Filter tahun matriks"
+              >
+                {['2025', '2026', '2027'].map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </label>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
+              Terkonsolidasi Otomatis
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -299,7 +455,7 @@ export default function ConsolidatorPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredBranches.map((branch) => {
+              {paginatedBranches.map((branch) => {
                 const isOverTarget = branch.achievementPercent >= 100;
                 return (
                   <tr key={branch.id} className="hover:bg-slate-50/80 transition">
@@ -367,6 +523,17 @@ export default function ConsolidatorPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={filteredBranches.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(items) => {
+            setItemsPerPage(items);
+            setCurrentPage(1);
+          }}
+        />
       </div>
     </main>
   );

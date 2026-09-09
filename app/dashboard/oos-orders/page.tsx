@@ -108,6 +108,7 @@ export default function OosOrdersPage() {
         },
       ],
       totalRp: currentProduct.price * orderQty,
+      area: selectedOutlet.split(' - ')[1],
       date: '07 Sep 2026 (Hari Ini)',
       status: itemStatus,
       restockEta: eta,

@@ -5,6 +5,7 @@ import { getStoredItem, setStoredItem, KEYS } from './storage.service';
 export interface SalesPerson {
   id: string;
   name: string;
+  targetOmsetRp?: number;
   username?: string;
   password?: string;
   area: string;
@@ -22,6 +23,7 @@ export interface SalesData {
   id?: string;
   nama_sales: string;
   area: string;
+  targetOmsetRp?: number;
   kunjungan_planned: number;
   kunjungan_realisasi: number;
   efektivitas_visit_persen: number;
@@ -95,6 +97,7 @@ export function getStoredSalesPerformance(): SalesData[] {
       id: rep.id,
       nama_sales: rep.name,
       area: rep.area,
+      targetOmsetRp: existing?.targetOmsetRp ?? rep.targetOmsetRp ?? 0,
       kunjungan_planned: planned,
       kunjungan_realisasi: realized,
       efektivitas_visit_persen: existing?.efektivitas_visit_persen || effectiveness,
@@ -132,6 +135,7 @@ export function registerSalesman(payload: NewSalesmanPayload): SalesPerson {
   const newRep: SalesPerson = {
     id,
     name: payload.name.trim(),
+    targetOmsetRp: Number(payload.targetOmsetRp) || 0,
     username: normalizedUsername,
     password,
     area: payload.area,
@@ -153,6 +157,7 @@ export function registerSalesman(payload: NewSalesmanPayload): SalesPerson {
     id: newRep.id,
     nama_sales: newRep.name,
     area: newRep.area,
+    targetOmsetRp: newRep.targetOmsetRp,
     kunjungan_planned: Number(payload.kunjunganPlanned) || 20,
     kunjungan_realisasi: 0,
     efektivitas_visit_persen: 0,

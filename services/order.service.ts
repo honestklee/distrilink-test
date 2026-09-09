@@ -3,6 +3,7 @@ import initialRemoteOrdersRaw from '@/data/remote-orders.json';
 import { getStoredItem, setStoredItem, KEYS } from './storage.service';
 import { deductProductStock } from './inventory.service';
 import { getStoredOutletProfiles, setStoredOutletProfiles } from './outlet.service';
+import { DEMO_CURRENT_DATE } from '@/data/demo-config';
 
 export interface SalesOrderItem {
   productId: string;
@@ -43,6 +44,7 @@ export interface RemoteOrder {
     substituteUsed?: string;
   }[];
   totalRp: number;
+  area?: string;
   date: string;
   status: 'Siap Kirim' | 'Substitusi Diterapkan' | 'Backorder Menunggu Pasokan';
   restockEta?: string;
@@ -71,7 +73,7 @@ export function createRemoteOrder(newOrder: RemoteOrder): void {
   // Deduct stock if not backorder
   if (newOrder.status !== 'Backorder Menunggu Pasokan') {
     newOrder.items.forEach((item) => {
-      deductProductStock(item.productId, item.qty);
+      deductProductStock(item.productId, item.qty, newOrder.area);
     });
   }
 
@@ -82,7 +84,7 @@ export function createRemoteOrder(newOrder: RemoteOrder): void {
       return {
         ...p,
         currentReceivableRp: p.currentReceivableRp + newOrder.totalRp,
-        lastOrderDate: '08 Sep 2026',
+        lastOrderDate: DEMO_CURRENT_DATE,
       };
     }
     return p;

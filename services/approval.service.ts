@@ -5,6 +5,7 @@ import { ReturItem, getStoredReturHistory, setStoredReturHistory } from './retur
 import { SalesOrder, SalesOrderItem, getStoredSalesOrders, setStoredSalesOrders } from './order.service';
 import { deductProductStock } from './inventory.service';
 import { addActivityLogItem } from './tracking.service';
+import { DEMO_CURRENT_DATE, DEMO_DEFAULT_AREA, DEMO_SUBMITTER } from '@/data/demo-config';
 
 export interface ApprovalItem {
   id: string;
@@ -38,7 +39,7 @@ export function registerNewOutlet(newOutlet: OutletItem): ApprovalItem {
     id: `APV-00${currentApprovals.length + 1}`,
     type: 'NOO',
     title: `Pendaftaran Outlet Baru: ${newOutlet.name} (${newOutlet.area})`,
-    submitter: 'Budi Santoso (Sales)',
+    submitter: DEMO_SUBMITTER,
     detail: `Koordinat GPS (${newOutlet.latitude}, ${newOutlet.longitude}) telah lolos validasi otomatis 14 meter dari fisik toko. Pemilik: ${newOutlet.owner} (${newOutlet.phone}).`,
     date: `${newOutlet.registeredDate} ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`,
     status: 'pending',
@@ -66,7 +67,7 @@ export function createReturClaim(newRetur: ReturItem): ApprovalItem {
     id: `APV-00${currentApprovals.length + 1}`,
     type: 'Retur',
     title: `Klaim Retur Barang: ${newRetur.product} (${newRetur.qty} unit)`,
-    submitter: 'Budi Santoso (Sales)',
+    submitter: DEMO_SUBMITTER,
     detail: `Outlet ${newRetur.outlet} mengajukan retur produk karena alasan: ${newRetur.reason}. Menunggu verifikasi fisik gudang & otorisasi supervisi.`,
     date: `${newRetur.date} ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`,
     status: 'pending',
@@ -92,7 +93,7 @@ export function recordOrderCheckout(params: {
   const cleanName = params.outletName.split(' - ')[0];
   const currentTime =
     new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
-  const currentDate = '08 Sep 2026';
+  const currentDate = DEMO_CURRENT_DATE;
 
   const currentOutlets = getStoredOutlets();
   const matchedOutlet = currentOutlets.find(
@@ -100,7 +101,7 @@ export function recordOrderCheckout(params: {
   );
   const orderArea =
     matchedOutlet?.area ||
-    (params.outletName.includes(' - ') ? params.outletName.split(' - ')[1] : 'Bandung Kota');
+    (params.outletName.includes(' - ') ? params.outletName.split(' - ')[1] : DEMO_DEFAULT_AREA);
 
   const requiresApproval = !params.skipApproval;
   let newApproval: ApprovalItem | undefined;
@@ -111,7 +112,7 @@ export function recordOrderCheckout(params: {
       id: `APV-00${currentApprovals.length + 1}`,
       type: 'Order',
       title: `Otorisasi Pesanan ${params.orderId}: ${cleanName}`,
-      submitter: 'Budi Santoso (Sales)',
+      submitter: DEMO_SUBMITTER,
       detail: `Pesanan senilai Rp ${params.grandTotal.toLocaleString('id-ID')} (${params.items.length} item, termin ${params.paymentTerm || 'COD'}). Menunggu otorisasi supervisi sebelum rilis pengiriman gudang.`,
       date: `${currentDate} ${currentTime}`,
       status: 'pending',
@@ -296,7 +297,7 @@ export function updateApprovalStatus(id: string, action: 'approved' | 'rejected'
       );
       if (targetOrder) {
         targetOrder.items.forEach((item) => {
-          deductProductStock(item.productId, item.qty);
+          deductProductStock(item.productId, item.qty, targetOrder.area);
         });
 
         const profiles = getStoredOutletProfiles();

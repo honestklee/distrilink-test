@@ -15,6 +15,7 @@ import {
   Sparkles,
   ShieldCheck,
   UserPlus,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useMemo, useSyncExternalStore } from 'react';
 import { UserSession } from '@/types/auth';
@@ -65,6 +66,13 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
       icon: UserPlus,
       badge: 'Supervisor',
       badgeColor: 'bg-indigo-100 text-indigo-700',
+    },
+    {
+      name: 'Audit Kunjungan Salesman',
+      href: '/dashboard/visit-audit',
+      icon: ClipboardCheck,
+      badge: 'Audit Outlet',
+      badgeColor: 'bg-emerald-100 text-emerald-700',
     },
     {
       name: 'Smart Data Consolidator',
@@ -119,7 +127,7 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
             onClick={onClose}
             className="flex items-center gap-3 group"
           >
-            <div className="p-2.5 bg-gradient-to-tr from-blue-700 to-blue-500 rounded-2xl text-white shadow-xs group-hover:shadow-blue-500/20 transition">
+            <div className="p-2.5 bg-linear-to-tr from-blue-700 to-blue-500 rounded-2xl text-white shadow-xs group-hover:shadow-blue-500/20 transition">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>

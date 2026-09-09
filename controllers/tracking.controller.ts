@@ -47,6 +47,7 @@ export class TrackingController {
       time: currentTime,
       salesId: salesInfo?.salesId,
       salesName: salesInfo?.salesName,
+      area: target.area || 'Bandung Kota',
     });
 
     return {
@@ -121,6 +122,7 @@ export class TrackingController {
       time: currentTime,
       salesId: salesInfo?.salesId,
       salesName: salesInfo?.salesName,
+      area: target.area || 'Bandung Kota',
     });
 
     return {

@@ -19,6 +19,7 @@ export {
   setStoredWarehouseProducts,
   getStoredWarehouseStocks,
   setStoredWarehouseStocks,
+  updateWarehouseStock,
   deductProductStock,
 } from '@/services/inventory.service';
 

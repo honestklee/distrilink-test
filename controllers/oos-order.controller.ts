@@ -3,6 +3,7 @@ import {
   CatalogProduct,
   createRemoteOrder,
 } from '@/lib/storage';
+import { DEMO_DEFAULT_TIME } from '@/data/demo-config';
 
 export interface SubmitRemoteOrderPayload {
   selectedOutlet: string;
@@ -35,7 +36,7 @@ export class OosOrderController {
         substituteUsed = `Substitusi disetujui: ${payload.currentProduct.substituteName}`;
       } else {
         itemStatus = 'Backorder Menunggu Pasokan';
-        eta = 'Besok (08 Sep 2026 10:00 WIB)';
+        eta = `Besok (${DEMO_DEFAULT_TIME})`;
       }
     }
 
@@ -57,7 +58,8 @@ export class OosOrderController {
         },
       ],
       totalRp: payload.currentProduct.price * payload.orderQty,
-      date: '08 Sep 2026 (Hari Ini)',
+      area: payload.selectedOutlet.split(' - ')[1],
+      date: `${DEMO_DEFAULT_TIME} (Hari Ini)`,
       status: itemStatus,
       restockEta: eta,
     };

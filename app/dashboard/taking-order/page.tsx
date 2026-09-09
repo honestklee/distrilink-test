@@ -61,6 +61,7 @@ export default function TakingOrderPage() {
   const [selectedOutlet, setSelectedOutlet] = useState('');
   const [paymentTerm, setPaymentTerm] = useState('COD');
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [warehouseStocks, setWarehouseStocks] = useState<WarehouseStockItem[]>([]);
   
   // Cart state: Record<productId, quantity> (starts empty for fresh user testing)
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -95,6 +96,8 @@ export default function TakingOrderPage() {
   const [orderHistoryPage, setOrderHistoryPage] = useState(1);
   const [orderHistoryItemsPerPage, setOrderHistoryItemsPerPage] = useState(5);
 
+  const selectedArea = selectedOutlet.split(' - ')[1] || 'Bandung Kota';
+
   useEffect(() => {
     const syncData = () => {
       const opts = getStoredOutletOptions();
@@ -103,6 +106,7 @@ export default function TakingOrderPage() {
         setSelectedOutlet(opts[0]);
       }
       setCatalogProducts(getStoredCatalogProducts());
+      setWarehouseStocks(getStoredWarehouseStocks());
       setReturHistory(getStoredReturHistory());
       setSalesOrders(getStoredSalesOrders());
     };
@@ -112,11 +116,40 @@ export default function TakingOrderPage() {
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
   }, [selectedOutlet]);
 
+  const regionalCatalogProducts = useMemo(() => {
+    const regionalStocks = warehouseStocks.filter((stock) => stock.area === selectedArea);
+    const productsById = new Map(catalogProducts.map((product) => [product.id, product]));
+    const productsByName = new Map(
+      catalogProducts.map((product) => [product.name.trim().toLowerCase(), product])
+    );
+
+    return regionalStocks.map((stock) => {
+      const product = productsById.get(stock.sku) || productsByName.get(stock.name.trim().toLowerCase());
+      return {
+        id: stock.sku,
+        name: stock.name,
+        category: stock.category,
+        price: product?.price || 0,
+        stock: stock.depoStock,
+        unit: stock.unit,
+        promo: product?.promo,
+        substituteId: product?.substituteId,
+        substituteName: product?.substituteName,
+      } satisfies CatalogProduct;
+    });
+  }, [catalogProducts, selectedArea, warehouseStocks]);
+
   // Cart operations
   const updateQty = (id: string, delta: number) => {
+    const product = regionalCatalogProducts.find((item) => item.id === id);
+    if (!product) return;
+
     setCart((prev) => {
       const current = prev[id] || 0;
       const next = current + delta;
+      if (delta > 0 && (product.stock <= 0 || current >= product.stock)) {
+        return prev;
+      }
       if (next <= 0) {
         const copy = { ...prev };
         delete copy[id];
@@ -137,25 +170,33 @@ export default function TakingOrderPage() {
   // Automated Promo and Discount calculations
   const orderSummary = useMemo(() => {
     let subtotal = 0;
+    let discountAmount = 0;
+    let promoReason = '';
     const bonusItems: string[] = [];
 
     Object.entries(cart).forEach(([id, qty]) => {
-      const product = catalogProducts.find((p) => p.id === id);
+      const product = regionalCatalogProducts.find((p) => p.id === id);
       if (product) {
         subtotal += product.price * qty;
 
         // Auto B5G1 promo: for every 5 bought, 1 bonus is awarded!
         if (product.promo?.type === 'b5g1' && qty >= 5) {
-          const bonusQty = Math.floor(qty / 5);
+          const threshold = product.promo.quantityThreshold || 5;
+          const freeQuantity = product.promo.freeQuantity || 1;
+          const bonusQty = Math.floor(qty / threshold) * freeQuantity;
           bonusItems.push(`${product.name} (Bonus: ${bonusQty} ${product.unit})`);
+        }
+
+        if (product.promo?.type === 'discount' && product.promo.discountPercent) {
+          const discountPercent = Math.min(100, Math.max(0, product.promo.discountPercent));
+          discountAmount += Math.round((product.price * qty * discountPercent) / 100);
+          promoReason = `Diskon ${discountPercent}% - ${product.name}`;
         }
       }
     });
 
     // Tiered transaction discount
     let discountPercent = 0;
-    let discountAmount = 0;
-    let promoReason = '';
 
     if (subtotal >= 1500000) {
       discountPercent = 10;
@@ -166,7 +207,7 @@ export default function TakingOrderPage() {
     }
 
     if (discountPercent > 0) {
-      discountAmount = Math.round((subtotal * discountPercent) / 100);
+      discountAmount += Math.round((subtotal * discountPercent) / 100);
     }
 
     const grandTotal = subtotal - discountAmount;
@@ -179,12 +220,18 @@ export default function TakingOrderPage() {
       bonusItems,
       grandTotal,
     };
-  }, [cart, catalogProducts]);
+  }, [cart, regionalCatalogProducts]);
 
   const handleCheckout = () => {
+    const hasUnavailableProduct = Object.entries(cart).some(([productId, qty]) => {
+      const product = regionalCatalogProducts.find((item) => item.id === productId);
+      return !product || product.stock <= 0 || qty > product.stock;
+    });
+    if (hasUnavailableProduct) return;
+
     const orderId = `PO-SAP-${Math.floor(100000 + Math.random() * 900000)}`;
     const detailedItems = Object.entries(cart).map(([productId, qty]) => {
-      const p = catalogProducts.find((item) => item.id === productId);
+      const p = regionalCatalogProducts.find((item) => item.id === productId);
       return {
         productId,
         productName: p?.name || productId,
@@ -222,7 +269,7 @@ export default function TakingOrderPage() {
 
   const handleCreateRetur = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetProd = catalogProducts.find((p) => p.id === returProduct);
+    const targetProd = regionalCatalogProducts.find((p) => p.id === returProduct);
     const newRetur: ReturItem = {
       id: `RET-2026-00${returHistory.length + 1}`,
       outlet: selectedOutlet.split(' - ')[0],
@@ -270,6 +317,7 @@ export default function TakingOrderPage() {
     const currentWarehouse = getStoredWarehouseStocks();
     const newWarehouseItem: WarehouseStockItem = {
       sku: newId,
+      area: selectedArea,
       name: newProd.name,
       category: newProd.category,
       depoStock: stockNum,
@@ -290,7 +338,7 @@ export default function TakingOrderPage() {
     setNewProdPromo('none');
   };
 
-  const filteredProducts = catalogProducts.filter(
+  const filteredProducts = regionalCatalogProducts.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.category.toLowerCase().includes(search.toLowerCase())
@@ -301,6 +349,10 @@ export default function TakingOrderPage() {
     (catalogPage - 1) * catalogItemsPerPage,
     catalogPage * catalogItemsPerPage
   );
+  const cartHasUnavailableProduct = Object.entries(cart).some(([productId, qty]) => {
+    const product = regionalCatalogProducts.find((item) => item.id === productId);
+    return !product || product.stock <= 0 || qty > product.stock;
+  });
 
   const totalReturPages = Math.ceil(returHistory.length / returItemsPerPage) || 1;
   const paginatedReturHistory = returHistory.slice(
@@ -421,7 +473,7 @@ export default function TakingOrderPage() {
       {activeTab === 'order' && (
         <div className="space-y-6">
           {/* Active Promo Notice Banner */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-white/10 rounded-xl">
                 <Sparkles className="w-5 h-5 text-amber-300" />
@@ -502,7 +554,7 @@ export default function TakingOrderPage() {
                 <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                   <span>Katalog Produk FMCG</span>
                   <span className="text-xs text-slate-500 font-normal">
-                    ({filteredProducts.length} produk tersedia)
+                    ({filteredProducts.length} produk tersedia di {selectedArea})
                   </span>
                 </h2>
                 <button
@@ -518,10 +570,15 @@ export default function TakingOrderPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {paginatedCatalogProducts.map((product) => {
                   const qty = cart[product.id] || 0;
+                  const isOutOfStock = product.stock <= 0;
                   return (
                     <div
                       key={product.id}
-                      className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs hover:border-blue-300 transition flex flex-col justify-between"
+                      className={`p-4 rounded-2xl border shadow-xs transition flex flex-col justify-between ${
+                        isOutOfStock
+                          ? 'bg-slate-100 border-slate-300 opacity-75'
+                          : 'bg-white border-slate-200/80 hover:border-blue-300'
+                      }`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2">
@@ -538,11 +595,15 @@ export default function TakingOrderPage() {
 
                         <h3 className="font-bold text-slate-900 text-sm mt-2">{product.name}</h3>
                         <p className="text-xs text-slate-400">SKU: {product.id}</p>
-                        <p className="font-extrabold text-blue-600 text-base mt-2">
+                        <p className={`font-extrabold text-base mt-2 ${isOutOfStock ? 'text-slate-500' : 'text-blue-600'}`}>
                           Rp {product.price.toLocaleString('id-ID')}{' '}
                           <span className="text-xs text-slate-400 font-normal">/ {product.unit}</span>
                         </p>
-                        <p className="text-[11px] text-slate-500 mt-1">Stok Gudang: {product.stock} {product.unit}</p>
+                        <p className={`text-[11px] mt-1 ${isOutOfStock ? 'font-bold text-rose-600' : 'text-slate-500'}`}>
+                          {isOutOfStock
+                            ? `Stok Gudang ${selectedArea}: Habis`
+                            : `Stok Gudang ${selectedArea}: ${product.stock} ${product.unit}`}
+                        </p>
                       </div>
 
                       {/* Quantity Selector */}
@@ -552,7 +613,7 @@ export default function TakingOrderPage() {
                           <button
                             type="button"
                             onClick={() => updateQty(product.id, -1)}
-                            disabled={qty <= 0}
+                            disabled={isOutOfStock || qty <= 0}
                             className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
                           >
                             <Minus className="w-3.5 h-3.5" />
@@ -563,7 +624,8 @@ export default function TakingOrderPage() {
                           <button
                             type="button"
                             onClick={() => updateQty(product.id, 1)}
-                            className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition cursor-pointer"
+                            disabled={isOutOfStock || qty >= product.stock}
+                            className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:bg-slate-400 disabled:pointer-events-none transition cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -605,9 +667,9 @@ export default function TakingOrderPage() {
                     Belum ada barang di keranjang. Silakan pilih produk dari katalog.
                   </div>
                 ) : (
-                  <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                  <div className="space-y-2.5 max-h-65 overflow-y-auto pr-1">
                     {Object.entries(cart).map(([id, qty]) => {
-                      const prod = catalogProducts.find((p) => p.id === id);
+                      const prod = regionalCatalogProducts.find((p) => p.id === id);
                       if (!prod) return null;
                       const itemTotal = prod.price * qty;
 
@@ -682,7 +744,7 @@ export default function TakingOrderPage() {
                 {/* Checkout Submit Button */}
                 <button
                   type="button"
-                  disabled={Object.keys(cart).length === 0}
+                  disabled={Object.keys(cart).length === 0 || cartHasUnavailableProduct}
                   onClick={handleCheckout}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer flex items-center justify-center gap-2"
                 >
@@ -722,7 +784,11 @@ export default function TakingOrderPage() {
                 <label className="block font-semibold text-slate-700 mb-1">Outlet Pelapor:</label>
                 <select
                   value={selectedOutlet}
-                  onChange={(e) => setSelectedOutlet(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedOutlet(e.target.value);
+                    setCart({});
+                    setCatalogPage(1);
+                  }}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                 >
                   {outletOptions.map((o) => (
@@ -740,7 +806,7 @@ export default function TakingOrderPage() {
                   onChange={(e) => setReturProduct(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                 >
-                  {catalogProducts.map((p) => (
+                  {regionalCatalogProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.unit})
                     </option>

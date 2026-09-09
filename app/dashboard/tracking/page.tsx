@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import salesRepsRaw from '@/data/sales-reps.json';
+import { DEFAULT_MAP_POINTS } from '@/data/tracking-config';
 import {
   getStoredActivityLogs,
   getStoredVisitLogs,
@@ -45,14 +46,6 @@ import { UserSession } from '@/types/auth';
 
 const SESSION_KEY = 'user_session';
 const emptySubscribe = () => () => {};
-
-const DEFAULT_MAP_POINTS = [
-  { x: 15, y: 72, svgX: 90, svgY: 216 },
-  { x: 32, y: 54, svgX: 192, svgY: 162 },
-  { x: 50, y: 40, svgX: 300, svgY: 120 },
-  { x: 68, y: 30, svgX: 408, svgY: 90 },
-  { x: 85, y: 25, svgX: 510, svgY: 75 },
-];
 
 const EMPTY_VISIT_SUMMARY = {
   visited: [] as OutletVisitLog[],
@@ -229,18 +222,28 @@ export default function RouteTrackingPage() {
   // Tab 2 Filtering and Pagination
   const filteredVisited = useMemo(() => {
     return visitSummary.visited.filter((item) =>
-      item.outletName.toLowerCase().includes(logSearch.toLowerCase()) ||
-      item.owner.toLowerCase().includes(logSearch.toLowerCase())
+      item.area.toLowerCase() === activeArea.toLowerCase() &&
+      (item.outletName.toLowerCase().includes(logSearch.toLowerCase()) ||
+        item.owner.toLowerCase().includes(logSearch.toLowerCase()))
     );
-  }, [visitSummary.visited, logSearch]);
+  }, [activeArea, visitSummary.visited, logSearch]);
 
   const filteredUnvisited = useMemo(() => {
     return visitSummary.unvisited.filter((item) =>
-      item.name.toLowerCase().includes(logSearch.toLowerCase()) ||
-      item.owner.toLowerCase().includes(logSearch.toLowerCase()) ||
-      item.category.toLowerCase().includes(logSearch.toLowerCase())
+      item.area.toLowerCase() === activeArea.toLowerCase() &&
+      (item.name.toLowerCase().includes(logSearch.toLowerCase()) ||
+        item.owner.toLowerCase().includes(logSearch.toLowerCase()) ||
+        item.category.toLowerCase().includes(logSearch.toLowerCase()))
     );
-  }, [visitSummary.unvisited, logSearch]);
+  }, [activeArea, visitSummary.unvisited, logSearch]);
+
+  const latestActivityLogs = activityLogs
+    .filter(
+      (log) =>
+        log.area?.toLowerCase() === activeArea.toLowerCase() &&
+        (!log.salesId || log.salesId === activeSalesId)
+    )
+    .slice(0, 5);
 
   const totalVisitedPages = Math.max(1, Math.ceil(filteredVisited.length / pageSize));
   const totalUnvisitedPages = Math.max(1, Math.ceil(filteredUnvisited.length / pageSize));
@@ -344,7 +347,7 @@ export default function RouteTrackingPage() {
       {activeMainTab === 'routes' && (
         <div className="space-y-6">
           {/* Salesman Live Status Card */}
-          <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-5 shadow-lg border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="bg-linear-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-5 shadow-lg border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             <div className="flex items-start sm:items-center gap-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white font-extrabold text-xl flex items-center justify-center shadow-md">
@@ -633,7 +636,7 @@ export default function RouteTrackingPage() {
                   </span>
                 </div>
 
-                <div className="relative h-80 bg-gradient-to-br from-slate-100 via-slate-200/80 to-blue-50/70 overflow-hidden flex items-center justify-center p-4">
+                <div className="relative h-80 bg-linear-to-br from-slate-100 via-slate-200/80 to-blue-50/70 overflow-hidden flex items-center justify-center p-4">
                   {/* Grid background */}
                   <div
                     className="absolute inset-0 opacity-20 pointer-events-none"
@@ -719,7 +722,7 @@ export default function RouteTrackingPage() {
                           }`}
                         >
                           {isCompleted ? (
-                            <Check className="w-4 h-4 stroke-[3]" />
+                            <Check className="w-4 h-4 stroke-3" />
                           ) : isInProgress ? (
                             <Navigation className="w-3.5 h-3.5 fill-white" />
                           ) : (
@@ -772,7 +775,7 @@ export default function RouteTrackingPage() {
                   {activityLogs.length === 0 ? (
                     <p className="text-xs text-slate-400 pl-2">Belum ada aktivitas tercatat hari ini.</p>
                   ) : (
-                    activityLogs.map((log, idx) => {
+                    latestActivityLogs.map((log, idx) => {
                       const isOrder = log.type === 'order';
                       const isCheckin = log.type === 'checkin';
                       const isCheckout = log.type === 'checkout';
