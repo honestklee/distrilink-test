@@ -672,7 +672,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setPendingConfirmation(null)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 cursor-pointer">Batal</button>
-              <button type="button" onClick={confirmPendingAction} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"><Check className="w-4 h-4 inline mr-1" />Konfirmasi Sekali Lagi</button>
+              <button type="button" onClick={confirmPendingAction} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"><Check className="w-4 h-4 inline mr-1" />Konfirmasi</button>
             </div>
           </div>
         </div>
