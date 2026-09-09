@@ -1,0 +1,11 @@
+SKU,Area,Nama Produk,Kategori,Harga Satuan,Stok Fisik Depo,Safety Stock,Reorder Point (ROP),Satuan,Ketahanan Stok (Hari),Status Gudang
+SKU-TEST-001,Bandung Kota,Minyak Goreng Sawit 2L,Sembako,34000,120,40,60,pouch,12,Aman
+SKU-TEST-002,Bandung Kota,Beras Premium 5kg,Sembako,75000,0,30,45,sak,0,Habis
+SKU-TEST-003,Bandung Kota,Gula Pasir 1kg,Sembako,17500,18,20,35,bungkus,2,Kritis
+SKU-TEST-004,Bandung Kota,Teh Celup 25 Sachet,Minuman,12500,85,20,30,kotak,9,Aman
+SKU-TEST-005,Bandung Barat,Kopi Bubuk 200g,Minuman,18500,220,60,100,pak,18,Aman
+SKU-TEST-006,Bandung Barat,Susu UHT 1L,Minuman,21000,0,25,40,kotak,0,Habis
+SKU-TEST-007,Bandung Barat,Biskuit Keluarga 300g,Makanan Ringan,16000,12,20,30,pak,1,Kritis
+SKU-TEST-008,Cimahi,Air Mineral 600ml,Minuman,3500,300,80,120,botol,20,Aman
+SKU-TEST-009,Cimahi,Sabun Mandi 80g,Personal Care,5500,45,15,25,pcs,6,Aman
+SKU-TEST-010,Cimahi,Deterjen Bubuk 1kg,Kebersihan,22000,7,15,25,pak,1,Kritis
