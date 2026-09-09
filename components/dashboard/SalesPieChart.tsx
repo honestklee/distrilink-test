@@ -116,9 +116,9 @@ export default function SalesPieChart({ data }: SalesPieChartProps) {
             <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
               <PieChartIcon className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-800 text-lg">Distribusi Wilayah</h3>
+            <h3 className="font-bold text-slate-800 text-lg">Distribusi Seluruh Wilayah</h3>
           </div>
-          <p className="text-xs text-slate-500 mt-1">Pangsa pasar order & aktivitas per area</p>
+          <p className="text-xs text-slate-500 mt-1">Persentase order & aktivitas dari seluruh area</p>
         </div>
 
         <div className="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-medium border border-slate-200/60">

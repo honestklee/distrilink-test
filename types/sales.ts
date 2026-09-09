@@ -1,4 +1,5 @@
 export interface SalesData {
+  id?: string;
   nama_sales: string;
   area: string;
   kunjungan_planned: number;

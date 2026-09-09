@@ -12,6 +12,13 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Distrilink SAP',
   description: 'Dashboard Analisa Performa Salesman',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' },
+    ],
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

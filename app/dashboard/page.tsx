@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import salesRaw from '@/data/sales.json';
 import { SalesData } from '@/types/sales';
 import { UserSession } from '@/types/auth';
 
@@ -28,7 +27,6 @@ import {
   Check,
   X,
   ShoppingCart,
-  FileText,
   Clock,
 } from 'lucide-react';
 
@@ -44,6 +42,9 @@ import {
   getStoredOutletProfiles,
   getStoredWarehouseStocks,
   getStoredSalesOrders,
+  getStoredSalesPerformance,
+  getStoredVisitLogs,
+  normalizeVisitDate,
   updateApprovalStatus,
   STORAGE_SYNC_EVENT,
 } from '@/lib/storage';
@@ -58,11 +59,14 @@ export default function DashboardPage() {
   >('performance');
 
   const [search, setSearch] = useState('');
-  const [selectedArea, setSelectedArea] = useState('All');
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [outletProfiles, setOutletProfiles] = useState<OutletProfile[]>([]);
   const [warehouseStocks, setWarehouseStocks] = useState<WarehouseStockItem[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [salesList, setSalesList] = useState<SalesData[]>([]);
+  const [visitLogs, setVisitLogs] = useState<ReturnType<typeof getStoredVisitLogs>>([]);
+  const [periodMonth, setPeriodMonth] = useState('09');
+  const [periodYear, setPeriodYear] = useState('2026');
   const [toastMsg, setToastMsg] = useState('');
 
   useEffect(() => {
@@ -71,13 +75,13 @@ export default function DashboardPage() {
       setOutletProfiles(getStoredOutletProfiles());
       setWarehouseStocks(getStoredWarehouseStocks());
       setSalesOrders(getStoredSalesOrders());
+      setSalesList(getStoredSalesPerformance());
+      setVisitLogs(getStoredVisitLogs());
     };
     syncData();
     window.addEventListener(STORAGE_SYNC_EVENT, syncData);
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, syncData);
   }, []);
-
-  const salesList: SalesData[] = salesRaw;
 
   // Retrieve user session without cascading renders
   const user = useMemo<UserSession | null>(() => {
@@ -99,17 +103,76 @@ export default function DashboardPage() {
     }
   }, [isClient, router]);
 
-  // Distinct areas
-  const areas = ['All', ...Array.from(new Set(salesList.map((item) => item.area)))];
+  const userArea = user?.area;
+  const selectedPeriod = `${periodYear}-${periodMonth}`;
 
-  // Filtered sales list
-  const filteredSales = useMemo(() => {
-    return salesList.filter((item) => {
-      const matchSearch = item.nama_sales.toLowerCase().includes(search.toLowerCase());
-      const matchArea = selectedArea === 'All' || item.area === selectedArea;
-      return matchSearch && matchArea;
+  const periodVisitLogs = useMemo(() => {
+    return visitLogs.filter((log) => normalizeVisitDate(log.date).startsWith(selectedPeriod));
+  }, [selectedPeriod, visitLogs]);
+
+  const periodSalesList = useMemo(() => {
+    return salesList.map((salesman) => {
+      const logs = periodVisitLogs.filter(
+        (log) =>
+          (salesman.id && log.salesId === salesman.id) ||
+          log.salesName.trim().toLowerCase() === salesman.nama_sales.trim().toLowerCase()
+      );
+      const realized = logs.length;
+      const orderTotal = logs.reduce((total, log) => total + (Number(log.orderValueRp) || 0), 0);
+
+      return {
+        ...salesman,
+        kunjungan_realisasi: realized,
+        efektivitas_visit_persen: salesman.kunjungan_planned
+          ? Math.round((realized / salesman.kunjungan_planned) * 100)
+          : 0,
+        total_order_rp: orderTotal,
+      };
     });
-  }, [search, selectedArea, salesList]);
+  }, [periodVisitLogs, salesList]);
+
+  // Territory-scoped Approvals (matching supervisor's assigned area)
+  const scopedApprovals = useMemo(() => {
+    if (!userArea || userArea === 'All') return approvals;
+    return approvals.filter(
+      (a) => !a.area || a.area.toLowerCase() === userArea.toLowerCase()
+    );
+  }, [approvals, userArea]);
+
+  const pendingApprovalsCount = useMemo(() => {
+    return scopedApprovals.filter((a) => a.status === 'pending').length;
+  }, [scopedApprovals]);
+
+  // Territory-scoped Sales Orders
+  const scopedSalesOrders = useMemo(() => {
+    if (!userArea || userArea === 'All') return salesOrders;
+    return salesOrders.filter(
+      (o) => !o.area || o.area.toLowerCase() === userArea.toLowerCase()
+    );
+  }, [salesOrders, userArea]);
+
+  // Territory-scoped Outlet Profiles
+  const scopedOutletProfiles = useMemo(() => {
+    if (!userArea || userArea === 'All') return outletProfiles;
+    return outletProfiles.filter(
+      (p) => !p.area || p.area.toLowerCase() === userArea.toLowerCase()
+    );
+  }, [outletProfiles, userArea]);
+
+  // Territory-scoped Sales Performance (matching supervisor's assigned area)
+  const scopedSalesList = useMemo(() => {
+    if (!userArea || userArea === 'All') return periodSalesList;
+    return periodSalesList.filter(
+      (item) => !item.area || item.area.toLowerCase() === userArea.toLowerCase()
+    );
+  }, [periodSalesList, userArea]);
+
+  // Filtered sales list based on search within supervisor's scoped territory
+  const filteredSales = useMemo(() => {
+    return scopedSalesList.filter((item) => {
+      return item.nama_sales.toLowerCase().includes(search.toLowerCase());
+    });
+  }, [search, scopedSalesList]);
 
   // Aggregate statistics
   const summary = useMemo(() => {
@@ -129,7 +192,6 @@ export default function DashboardPage() {
 
   const handleResetFilters = () => {
     setSearch('');
-    setSelectedArea('All');
   };
 
   const handleApprovalAction = (id: string, action: 'approved' | 'rejected') => {
@@ -178,7 +240,71 @@ export default function DashboardPage() {
 
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs text-slate-600 shadow-2xs">
           <Calendar className="w-3.5 h-3.5 text-blue-600" />
-          <span className="font-semibold text-slate-800">Periode Aktif: September 2026</span>
+          <span className="font-semibold text-slate-800">Periode:</span>
+          <select
+            value={periodMonth}
+            onChange={(event) => setPeriodMonth(event.target.value)}
+            className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer"
+            aria-label="Pilih bulan dashboard"
+          >
+            {[
+              ['01', 'Januari'],
+              ['02', 'Februari'],
+              ['03', 'Maret'],
+              ['04', 'April'],
+              ['05', 'Mei'],
+              ['06', 'Juni'],
+              ['07', 'Juli'],
+              ['08', 'Agustus'],
+              ['09', 'September'],
+              ['10', 'Oktober'],
+              ['11', 'November'],
+              ['12', 'Desember'],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={periodYear}
+            onChange={(event) => setPeriodYear(event.target.value)}
+            className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer"
+            aria-label="Pilih tahun dashboard"
+          >
+            {['2025', '2026', '2027'].map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Territory Scoping Notice Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-indigo-50/90 via-blue-50/70 to-indigo-50/90 rounded-2xl border border-indigo-200/80 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-xs shrink-0">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-indigo-950 text-sm">
+                Wilayah Otorisasi Supervisi: {user?.area || 'Semua Wilayah'}
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-200/70 text-indigo-900">
+                Terisolasi RBAC Wilayah
+              </span>
+            </div>
+            <p className="text-slate-600 mt-0.5">
+              Anda mengotorisasi pengajuan toko baru (NOO), plafon kredit, dan pesanan taking order di area <strong>{user?.area || 'Wilayah Aktif'}</strong>. Pengajuan dari wilayah lain otomatis diarahkan ke supervisor cabang bersangkutan.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 sm:self-center">
+          <span className="px-2.5 py-1 rounded-xl bg-white border border-indigo-200 text-[11px] font-bold text-indigo-700 shadow-2xs">
+            {pendingApprovalsCount} Tiket Perlu Tindakan
+          </span>
         </div>
       </div>
 
@@ -208,6 +334,11 @@ export default function DashboardPage() {
         >
           <Building2 className="w-4 h-4" />
           <span>2. Profil & Audit Outlet 360°</span>
+          {scopedOutletProfiles.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+              {scopedOutletProfiles.length}
+            </span>
+          )}
         </button>
 
         <button
@@ -234,9 +365,9 @@ export default function DashboardPage() {
         >
           <ShieldCheck className="w-4 h-4" />
           <span>4. Meja Persetujuan Supervisi</span>
-          {approvals.filter((a) => a.status === 'pending').length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-rose-500 text-white">
-              {approvals.filter((a) => a.status === 'pending').length}
+          {pendingApprovalsCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-rose-500 text-white animate-pulse">
+              {pendingApprovalsCount}
             </span>
           )}
         </button>
@@ -253,7 +384,7 @@ export default function DashboardPage() {
           <ShoppingCart className="w-4 h-4" />
           <span>5. Monitoring Pesanan Masuk (Live PO SAP)</span>
           <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700">
-            {salesOrders.length}
+            {scopedSalesOrders.length}
           </span>
         </button>
       </div>
@@ -327,7 +458,7 @@ export default function DashboardPage() {
 
             <div className="lg:col-span-5 flex">
               <div className="w-full">
-                <SalesPieChart data={filteredSales} />
+                <SalesPieChart data={periodSalesList} />
               </div>
             </div>
           </div>
@@ -347,29 +478,17 @@ export default function DashboardPage() {
 
             <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-2.5">
               <div className="flex flex-row items-center gap-2">
-                <span className="hidden sm:flex items-center gap-1 text-xs text-slate-500 font-medium">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  Area:
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-700 font-bold">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Wilayah Otorisasi: {userArea || 'Semua Wilayah'}</span>
                 </span>
-
-                <select
-                  value={selectedArea}
-                  onChange={(e) => setSelectedArea(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:bg-white focus:border-blue-500 outline-none cursor-pointer"
-                >
-                  {areas.map((area) => (
-                    <option key={area} value={area}>
-                      {area === 'All' ? 'Semua Wilayah' : area}
-                    </option>
-                  ))}
-                </select>
               </div>
 
-              {(search || selectedArea !== 'All') && (
+              {search && (
                 <button
                   type="button"
                   onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset</span>
@@ -393,21 +512,21 @@ export default function DashboardPage() {
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total Limit Kredit Diberikan</span>
               <p className="text-2xl font-extrabold text-slate-900 mt-1">
-                Rp {outletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0).toLocaleString('id-ID')}
+                Rp {scopedOutletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0).toLocaleString('id-ID')}
               </p>
-              <p className="text-[11px] text-emerald-600 mt-1">Terbagi ke {outletProfiles.length} Outlet Binaan</p>
+              <p className="text-[11px] text-emerald-600 mt-1">Terbagi ke {scopedOutletProfiles.length} Outlet Binaan ({user?.area || 'Cabang'})</p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total Piutang Berjalan (Outstanding)</span>
               <p className="text-2xl font-extrabold text-blue-600 mt-1">
-                Rp {outletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0).toLocaleString('id-ID')}
+                Rp {scopedOutletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0).toLocaleString('id-ID')}
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
-                Utilisasi: {outletProfiles.length > 0 ? (
+                Utilisasi: {scopedOutletProfiles.length > 0 ? (
                   (
-                    (outletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0) /
-                      (outletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0) || 1)) *
+                    (scopedOutletProfiles.reduce((acc, c) => acc + c.currentReceivableRp, 0) /
+                      (scopedOutletProfiles.reduce((acc, c) => acc + c.creditLimitRp, 0) || 1)) *
                     100
                   ).toFixed(1)
                 ) : 0}% (Aman)
@@ -417,15 +536,15 @@ export default function DashboardPage() {
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Kepatuhan Pembayaran Rata-rata</span>
               <p className="text-2xl font-extrabold text-emerald-600 mt-1">
-                {outletProfiles.length > 0
+                {scopedOutletProfiles.length > 0
                   ? (
-                      outletProfiles.reduce((acc, c) => acc + c.paymentCompliancePercent, 0) /
-                      outletProfiles.length
+                      scopedOutletProfiles.reduce((acc, c) => acc + c.paymentCompliancePercent, 0) /
+                      scopedOutletProfiles.length
                     ).toFixed(1)
                   : 0}%
               </p>
               <p className="text-[11px] text-amber-600 mt-1">
-                {outletProfiles.filter((p) => p.auditStatus === 'Over Limit').length} Toko Melebihi Plafon
+                {scopedOutletProfiles.filter((p) => p.auditStatus === 'Over Limit').length} Toko Melebihi Plafon
               </p>
             </div>
           </div>
@@ -436,14 +555,14 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-600" />
-                  <span>Daftar Profil Finansial & Audit Outlet ({outletProfiles.length})</span>
+                  <span>Daftar Profil Finansial & Audit Outlet ({scopedOutletProfiles.length})</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Supervisor memantau batas limit kredit, riwayat piutang berjalan, dan tingkat kepatuhan tempo toko
+                  Supervisor memantau batas limit kredit, riwayat piutang berjalan, dan tingkat kepatuhan tempo toko di wilayah {user?.area}
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 rounded-full text-slate-600">
-                Data Terverifikasi Backoffice
+                Wilayah: {user?.area || 'Semua'}
               </span>
             </div>
 
@@ -461,17 +580,24 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {outletProfiles.map((item) => {
-                    const isOverLimit = item.auditStatus === 'Over Limit';
-                    const isWarning = item.auditStatus === 'Perlu Follow-up';
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                        <td className="p-3.5">
-                          <p className="font-bold text-slate-900">{item.name}</p>
-                          <p className="text-[10px] text-slate-400">
-                            {item.id} • Pemilik: {item.owner}
-                          </p>
-                        </td>
+                  {scopedOutletProfiles.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                        Belum ada profil outlet di wilayah {user?.area}. Saat outlet baru diverifikasi, profil audit finansialnya akan tercatat di sini.
+                      </td>
+                    </tr>
+                  ) : (
+                    scopedOutletProfiles.map((item) => {
+                      const isOverLimit = item.auditStatus === 'Over Limit';
+                      const isWarning = item.auditStatus === 'Perlu Follow-up';
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                          <td className="p-3.5">
+                            <p className="font-bold text-slate-900">{item.name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {item.id} • Pemilik: {item.owner}
+                            </p>
+                          </td>
 
                         <td className="p-3.5">
                           <span className="font-medium text-slate-800">{item.category}</span>
@@ -519,8 +645,9 @@ export default function DashboardPage() {
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
+                  })
+                )}
+              </tbody>
               </table>
             </div>
           </div>
@@ -668,92 +795,104 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-3">
-              {approvals.map((item) => {
-                const isPending = item.status === 'pending';
-                const isApproved = item.status === 'approved';
+              {scopedApprovals.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-sm">
+                    Tidak ada tiket pengajuan untuk wilayah {user?.area}
+                  </p>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Saat salesman mengajukan outlet baru (NOO), klaim retur barang rusak, atau order taking order di wilayah {user?.area}, tiket otorisasi akan otomatis masuk ke meja Anda di sini.
+                  </p>
+                </div>
+              ) : (
+                scopedApprovals.map((item) => {
+                  const isPending = item.status === 'pending';
+                  const isApproved = item.status === 'approved';
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`p-4 rounded-2xl border transition-all ${
-                      isPending
-                        ? 'bg-slate-50 border-slate-200'
-                        : isApproved
-                        ? 'bg-emerald-50/50 border-emerald-200'
-                        : 'bg-rose-50/50 border-rose-200'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-blue-600 text-xs">{item.id}</span>
-                          <span className="text-slate-300">•</span>
-                          <span
-                            className={`px-2 py-0.5 rounded font-semibold text-[10px] ${
-                              item.type === 'NOO'
-                                ? 'bg-emerald-100 text-emerald-800'
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        isPending
+                          ? 'bg-slate-50 border-slate-200'
+                          : isApproved
+                          ? 'bg-emerald-50/50 border-emerald-200'
+                          : 'bg-rose-50/50 border-rose-200'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-blue-600 text-xs">{item.id}</span>
+                            <span className="text-slate-300">•</span>
+                            <span
+                              className={`px-2 py-0.5 rounded font-semibold text-[10px] ${
+                                item.type === 'NOO'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : item.type === 'Order'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : item.type === 'Retur'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {item.type === 'NOO'
+                                ? 'Pendaftaran NOO'
                                 : item.type === 'Order'
-                                ? 'bg-purple-100 text-purple-800'
+                                ? 'Otorisasi Order SAP'
                                 : item.type === 'Retur'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {item.type === 'NOO'
-                              ? 'Pendaftaran NOO'
-                              : item.type === 'Order'
-                              ? 'Otorisasi Order SAP'
-                              : item.type === 'Retur'
-                              ? 'Klaim Retur'
-                              : item.type}
-                          </span>
-                          <span className="text-xs font-bold text-slate-900">{item.title}</span>
+                                ? 'Klaim Retur'
+                                : item.type}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900">{item.title}</span>
+                          </div>
+
+                          <p className="text-xs text-slate-600">{item.detail}</p>
+
+                          <p className="text-[11px] text-slate-400">
+                            Diajukan oleh: <strong>{item.submitter}</strong> • {item.date} • Wilayah: <strong className="text-indigo-600">{item.area}</strong>
+                          </p>
                         </div>
 
-                        <p className="text-xs text-slate-600">{item.detail}</p>
-
-                        <p className="text-[11px] text-slate-400">
-                          Diajukan oleh: <strong>{item.submitter}</strong> • {item.date}
-                        </p>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isPending ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleApprovalAction(item.id, 'rejected')}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isPending ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApprovalAction(item.id, 'rejected')}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Tolak</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApprovalAction(item.id, 'approved')}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Setujui Otorisasi</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                isApproved
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  : 'bg-rose-100 text-rose-800 border-rose-300'
+                              }`}
                             >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Tolak</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleApprovalAction(item.id, 'approved')}
-                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Setujui Otorisasi</span>
-                            </button>
-                          </>
-                        ) : (
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                              isApproved
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                : 'bg-rose-100 text-rose-800 border-rose-300'
-                            }`}
-                          >
-                            {isApproved ? 'Telah Disetujui' : 'Telah Ditolak'}
-                          </span>
-                        )}
+                              {isApproved ? 'Telah Disetujui' : 'Telah Ditolak'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -768,22 +907,22 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total Pesanan Masuk Hari Ini</span>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1">{salesOrders.length} Pesanan</p>
-              <p className="text-[11px] text-slate-400 mt-1">Diterbitkan oleh tim salesman lapangan</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">{scopedSalesOrders.length} Pesanan</p>
+              <p className="text-[11px] text-slate-400 mt-1">Diterbitkan tim salesman di {user?.area}</p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Total Nilai Omset PO</span>
               <p className="text-2xl font-extrabold text-blue-600 mt-1">
-                Rp {salesOrders.reduce((a, b) => a + b.totalRp, 0).toLocaleString('id-ID')}
+                Rp {scopedSalesOrders.reduce((a, b) => a + b.totalRp, 0).toLocaleString('id-ID')}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">Akumulasi taking order harian</p>
+              <p className="text-[11px] text-slate-400 mt-1">Akumulasi taking order wilayah</p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Perlu Otorisasi Supervisor</span>
               <p className="text-2xl font-extrabold text-amber-600 mt-1">
-                {salesOrders.filter((o) => o.status === 'Menunggu Persetujuan Supervisor').length} PO
+                {scopedSalesOrders.filter((o) => o.status === 'Menunggu Persetujuan Supervisor').length} PO
               </p>
               <p className="text-[11px] text-amber-700 mt-1">Menunggu pengesahan rilis gudang</p>
             </div>
@@ -791,7 +930,7 @@ export default function DashboardPage() {
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <span className="text-xs text-slate-500 font-medium">Telah Disetujui & Siap Kirim</span>
               <p className="text-2xl font-extrabold text-emerald-600 mt-1">
-                {salesOrders.filter((o) => o.status === 'Disetujui & Siap Kirim').length} PO
+                {scopedSalesOrders.filter((o) => o.status === 'Disetujui & Siap Kirim').length} PO
               </p>
               <p className="text-[11px] text-emerald-700 mt-1">Stok terpotong, siap dipacking</p>
             </div>
@@ -803,14 +942,14 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <ShoppingCart className="w-4 h-4 text-blue-600" />
-                  <span>Daftar Transaksi Pesanan Masuk Salesman ({salesOrders.length})</span>
+                  <span>Daftar Transaksi Pesanan Masuk Salesman ({scopedSalesOrders.length})</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Supervisor memantau seluruh PO yang dikirim oleh salesman, mengecek rincian barang, dan dapat menyetujui langsung
+                  Supervisor memantau seluruh PO yang dikirim oleh salesman di wilayah {user?.area}, mengecek rincian barang, dan dapat menyetujui langsung
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
-                Realtime SAP Backoffice
+                Wilayah: {user?.area || 'Semua'}
               </span>
             </div>
 
@@ -829,14 +968,14 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {salesOrders.length === 0 ? (
+                  {scopedSalesOrders.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-8 text-center text-slate-400">
-                        Belum ada pesanan yang masuk hari ini.
+                        Belum ada pesanan yang masuk untuk wilayah {user?.area}.
                       </td>
                     </tr>
                   ) : (
-                    salesOrders.map((order) => {
+                    scopedSalesOrders.map((order) => {
                       const isPending = order.status === 'Menunggu Persetujuan Supervisor';
                       const isApproved = order.status === 'Disetujui & Siap Kirim';
                       const isRejected = order.status === 'Ditolak Supervisor';

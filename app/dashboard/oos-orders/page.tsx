@@ -25,6 +25,7 @@ import {
   RemoteOrder,
   CatalogProduct,
 } from '@/lib/storage';
+import Pagination from '@/components/dashboard/Pagination';
 
 export default function OosOrdersPage() {
   const [orders, setOrders] = useState<RemoteOrder[]>(initialRemoteOrdersRaw as RemoteOrder[]);
@@ -38,6 +39,10 @@ export default function OosOrdersPage() {
   const [oosActionChoice, setOosActionChoice] = useState<'substitute' | 'backorder'>('substitute');
   const [toastMessage, setToastMessage] = useState('');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+
   // Load and listen to reactive storage updates
   useEffect(() => {
     const syncData = () => {
@@ -49,9 +54,9 @@ export default function OosOrdersPage() {
       setOutlets(storedOutlets);
       setWarehouseProducts(storedProducts);
 
-      if (!storedOutlets.includes(selectedOutlet) && storedOutlets.length > 0) {
-        setSelectedOutlet(storedOutlets[0]);
-      }
+      setSelectedOutlet((prev) =>
+        !storedOutlets.includes(prev) && storedOutlets.length > 0 ? storedOutlets[0] : prev
+      );
     };
 
     syncData();
@@ -113,6 +118,12 @@ export default function OosOrdersPage() {
     setToastMessage(`Pesanan tanpa kunjungan ${orderId} berhasil diterbitkan dengan status: ${itemStatus}`);
     setTimeout(() => setToastMessage(''), 5000);
   };
+
+  const totalPages = Math.ceil(orders.length / itemsPerPage) || 1;
+  const paginatedOrders = orders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <main className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6 font-sans">
@@ -400,7 +411,7 @@ export default function OosOrdersPage() {
           </div>
 
           <div className="divide-y divide-slate-100">
-            {orders.map((order) => {
+            {paginatedOrders.map((order) => {
               const isBackorder = order.status === 'Backorder Menunggu Pasokan';
               const isSubstituted = order.status === 'Substitusi Diterapkan';
               const isReady = order.status === 'Siap Kirim';
@@ -470,6 +481,16 @@ export default function OosOrdersPage() {
               );
             })}
           </div>
+
+          {/* Non-Visit Orders Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={orders.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
         </div>
       </div>
     </main>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { login } from '@/services/auth.services';
+import { AuthController, AuthErrorInfo } from '@/controllers/auth.controller';
 import demoAccounts from '@/data/demo-accounts.json';
 import {
   User,
@@ -19,24 +19,24 @@ import {
   HelpCircle,
 } from 'lucide-react';
 
-interface AuthErrorInfo {
-  title: string;
-  message: string;
-  tips?: string[];
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState(demoAccounts[0]?.username || 'emilys');
-  const [password, setPassword] = useState(demoAccounts[0]?.password || 'emilyspass');
+  const [username, setUsername] = useState(demoAccounts[0]?.username || 'spv_bandungkota');
+  const [password, setPassword] = useState(demoAccounts[0]?.password || 'password123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<AuthErrorInfo | null>(null);
   const [hasCredentialError, setHasCredentialError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (Cookies.get('user_session')) {
-      router.push('/dashboard');
+    const rawSession = Cookies.get('user_session');
+    if (rawSession) {
+      try {
+        const user = JSON.parse(rawSession);
+        router.push(AuthController.getRedirectPath(user));
+      } catch {
+        router.push('/dashboard');
+      }
     }
   }, [router]);
 
@@ -47,40 +47,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const user = await login({ username, password });
-      Cookies.set('user_session', JSON.stringify(user), { expires: 1 });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user_session', JSON.stringify(user));
+      const result = await AuthController.handleLogin({ username, password });
+      if (result.success && result.user) {
+        router.push(AuthController.getRedirectPath(result.user));
+      } else if (result.error) {
+        if (result.error.title.includes('Tidak Sesuai')) {
+          setHasCredentialError(true);
+        }
+        setError(result.error);
       }
-      router.push('/dashboard');
-    } catch (err) {
-      const rawMessage =
-        err instanceof Error ? err.message : 'Login gagal, periksa kredensial Anda.';
-
-      const isWrongCredential =
-        rawMessage.toLowerCase().includes('salah') ||
-        rawMessage.toLowerCase().includes('kredensial') ||
-        rawMessage.toLowerCase().includes('credential') ||
-        rawMessage.toLowerCase().includes('invalid');
-
-      if (isWrongCredential) {
-        setHasCredentialError(true);
-        setError({
-          title: 'Username atau Password Tidak Sesuai',
-          message:
-            'Kombinasi username atau password yang Anda masukkan salah. Sistem tidak dapat menemukan akun yang sesuai.',
-          tips: [
-            'Pastikan huruf besar dan huruf kecil sudah benar (periksa apakah tombol Caps Lock aktif).',
-            'Pastikan tidak ada spasi yang tidak disengaja sebelum atau sesudah teks.',
-            'Anda dapat mencoba menggunakan akun demo di bawah untuk login instan.',
-          ],
-        });
-      } else {
-        setError({
-          title: 'Autentikasi Gagal',
-          message: rawMessage,
-        });
-      }
+    } catch {
+      setError({
+        title: 'Kesalahan Sistem',
+        message: 'Terjadi kendala saat memproses masuk.',
+      });
     } finally {
       setLoading(false);
     }
@@ -331,29 +311,75 @@ export default function LoginPage() {
               </form>
 
               {/* Demo Account Quick Access Card */}
-              <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2.5">
+              <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                    Kredensial Uji Coba (DummyJSON Live)
+                    Pilih Akun Uji Coba (RBAC & Multi-Wilayah)
                   </span>
-                  <span className="text-[10px] text-slate-400">POST /auth/login</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">
+                    LocalStorage RBAC
+                  </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {demoAccounts.map((account) => (
-                    <button
-                      key={account.username}
-                      type="button"
-                      onClick={() => handleFillDemo(account.username, account.password)}
-                      className="px-2 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-medium rounded-lg border border-slate-200 hover:border-blue-300 transition shadow-2xs text-left cursor-pointer"
-                    >
-                      <span className="block font-semibold text-[11px]">{account.name}</span>
-                      <span className="block text-[10px] text-slate-400">{account.username}</span>
-                    </button>
-                  ))}
+
+                {/* Supervisor Accounts */}
+                <div>
+                  <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block mb-1.5">
+                    1. Akun Supervisor (3 Wilayah Berbeda):
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {demoAccounts
+                      .filter((acc) => acc.role === 'supervisor')
+                      .map((account) => (
+                        <button
+                          key={account.username}
+                          type="button"
+                          onClick={() => handleFillDemo(account.username, account.password)}
+                          className={`p-2 rounded-xl border text-left cursor-pointer transition ${
+                            username === account.username
+                              ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-500/20'
+                              : 'bg-white border-slate-200 hover:border-indigo-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="block font-bold text-slate-900 text-xs truncate">{account.name}</span>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded text-[9px] font-bold">
+                            {account.area}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
                 </div>
-                <p className="text-[10px] text-slate-500">
-                  Klik akun di atas untuk mengisi kredensial valid secara instan.
+
+                {/* Salesman Accounts */}
+                <div className="pt-2 border-t border-slate-200/60">
+                  <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider block mb-1.5">
+                    2. Akun Salesman Lapangan:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {demoAccounts
+                      .filter((acc) => acc.role === 'salesman')
+                      .map((account) => (
+                        <button
+                          key={account.username}
+                          type="button"
+                          onClick={() => handleFillDemo(account.username, account.password)}
+                          className={`p-2 rounded-xl border text-left cursor-pointer transition ${
+                            username === account.username
+                              ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-500/20'
+                              : 'bg-white border-slate-200 hover:border-blue-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="block font-bold text-slate-900 text-xs truncate">{account.name}</span>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-blue-100 text-blue-700 rounded text-[9px] font-bold">
+                            Salesman ({account.area})
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400">
+                  Password bawaan: <code className="text-slate-600 font-mono">password123</code>. Anda juga dapat login dengan salesman baru yang didaftarkan lewat web.
                 </p>
               </div>
             </div>

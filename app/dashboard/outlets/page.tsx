@@ -20,11 +20,14 @@ import {
   registerNewOutlet,
   STORAGE_SYNC_EVENT,
 } from '@/lib/storage';
+import Pagination from '@/components/dashboard/Pagination';
 
 export default function OutletsPage() {
-  const [outlets, setOutlets] = useState<OutletItem[]>([]);
+  const [outlets, setOutlets] = useState<OutletItem[]>(getStoredOutlets);
   const [search, setSearch] = useState('');
   const [selectedArea, setSelectedArea] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isSimulatingGps, setIsSimulatingGps] = useState(false);
   const [gpsValidationResult, setGpsValidationResult] = useState<{
     distanceMeter: number;
@@ -48,7 +51,6 @@ export default function OutletsPage() {
   const [successNotice, setSuccessNotice] = useState('');
 
   useEffect(() => {
-    setOutlets(getStoredOutlets());
     const handleSync = () => setOutlets(getStoredOutlets());
     window.addEventListener(STORAGE_SYNC_EVENT, handleSync);
     return () => window.removeEventListener(STORAGE_SYNC_EVENT, handleSync);
@@ -123,6 +125,12 @@ export default function OutletsPage() {
     const matchArea = selectedArea === 'All' || o.area === selectedArea;
     return matchSearch && matchArea;
   });
+
+  const totalPages = Math.ceil(filteredOutlets.length / itemsPerPage) || 1;
+  const paginatedOutlets = filteredOutlets.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <main className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6 font-sans">
@@ -383,14 +391,20 @@ export default function OutletsPage() {
                   type="text"
                   placeholder="Cari toko / pemilik..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
                 />
               </div>
 
               <select
                 value={selectedArea}
-                onChange={(e) => setSelectedArea(e.target.value)}
+                onChange={(e) => {
+                  setSelectedArea(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
               >
                 <option value="All">Semua Area</option>
@@ -415,7 +429,7 @@ export default function OutletsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredOutlets.map((item) => (
+                {paginatedOutlets.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/80">
                     <td className="p-3">
                       <p className="font-bold text-slate-900">{item.name}</p>
@@ -463,6 +477,16 @@ export default function OutletsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Outlets Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredOutlets.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
         </div>
       </div>
     </main>

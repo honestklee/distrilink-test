@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   MapPin,
   Route,
-  ArrowRight,
   X,
 } from 'lucide-react';
 import { resetAllDataToDefault } from '@/lib/storage';
@@ -88,7 +87,10 @@ export default function DashboardNavbar({ onToggleSidebar }: DashboardNavbarProp
             </button>
 
             {/* Mobile Brand Logo (hidden on lg since sidebar is visible) */}
-            <Link href="/dashboard" className="lg:hidden flex items-center gap-2 shrink-0">
+            <Link
+              href={user?.role === 'salesman' ? '/dashboard/taking-order' : '/dashboard'}
+              className="lg:hidden flex items-center gap-2 shrink-0"
+            >
               <div className="p-1.5 bg-gradient-to-tr from-blue-700 to-blue-500 rounded-xl text-white">
                 <BarChart3 className="w-4 h-4" />
               </div>
@@ -152,10 +154,23 @@ export default function DashboardNavbar({ onToggleSidebar }: DashboardNavbarProp
                 </div>
               )}
               <div className="hidden md:block text-left">
-                <p className="text-xs font-bold text-slate-800 leading-tight">
-                  {user ? `${user.firstName} ${user.lastName}` : 'Memuat...'}
-                </p>
-                <p className="text-[11px] text-slate-400">@{user?.username || 'supervisor'}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold text-slate-800 leading-tight">
+                    {user ? `${user.firstName} ${user.lastName}` : 'Memuat...'}
+                  </p>
+                  {user && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                        user.role === 'supervisor'
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}
+                    >
+                      {user.role === 'supervisor' ? `SPV: ${user.area}` : `Sales: ${user.area}`}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400">@{user?.username || 'user'}</p>
               </div>
             </div>
 

@@ -189,10 +189,14 @@ export default function SalesTable({ data, onResetFilters }: SalesTableProps) {
             ) : (
               paginatedData.map((item) => {
                 const initials = item.nama_sales
-                  .split(' ')
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join('');
+                  ? item.nama_sales
+                      .trim()
+                      .split(/\s+/)
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()
+                  : 'S';
 
                 const isHigh = item.efektivitas_visit_persen >= 85;
                 const isMedium =
@@ -200,7 +204,7 @@ export default function SalesTable({ data, onResetFilters }: SalesTableProps) {
 
                 return (
                   <tr
-                    key={item.nama_sales}
+                    key={item.id ? `${item.id}-${item.nama_sales}` : item.nama_sales}
                     className="hover:bg-slate-50/80 transition-colors group"
                   >
                     {/* Sales Name with Initials Avatar */}
@@ -217,7 +221,9 @@ export default function SalesTable({ data, onResetFilters }: SalesTableProps) {
                           <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition">
                             {item.nama_sales}
                           </p>
-                          <p className="text-[11px] text-slate-400">ID: SLM-0{item.kunjungan_planned}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            ID: {item.id || `SLM-001`}
+                          </p>
                         </div>
                       </div>
                     </td>

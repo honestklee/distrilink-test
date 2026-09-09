@@ -24,9 +24,13 @@ import {
 
 import {
   CatalogProduct,
+  WarehouseStockItem,
   ReturItem,
   SalesOrder,
   getStoredCatalogProducts,
+  setStoredCatalogProducts,
+  getStoredWarehouseStocks,
+  setStoredWarehouseStocks,
   getStoredOutletOptions,
   getStoredReturHistory,
   getStoredSalesOrders,
@@ -34,6 +38,7 @@ import {
   recordOrderCheckout,
   STORAGE_SYNC_EVENT,
 } from '@/lib/storage';
+import Pagination from '@/components/dashboard/Pagination';
 
 interface OrderReceipt {
   orderId: string;
@@ -57,11 +62,17 @@ export default function TakingOrderPage() {
   const [paymentTerm, setPaymentTerm] = useState('COD');
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
   
-  // Cart state: Record<productId, quantity>
-  const [cart, setCart] = useState<Record<string, number>>({
-    'PRD-001': 5, // Default preloaded with 5 to immediately showcase the B5G1 promo!
-    'PRD-003': 2,
-  });
+  // Cart state: Record<productId, quantity> (starts empty for fresh user testing)
+  const [cart, setCart] = useState<Record<string, number>>({});
+
+  // Add custom product state
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdCategory, setNewProdCategory] = useState('Sembako');
+  const [newProdPrice, setNewProdPrice] = useState('');
+  const [newProdStock, setNewProdStock] = useState('100');
+  const [newProdUnit, setNewProdUnit] = useState('pcs');
+  const [newProdPromo, setNewProdPromo] = useState<'none' | 'b5g1' | 'discount'>('none');
 
   const [orderSuccessModal, setOrderSuccessModal] = useState(false);
   const [lastOrderInfo, setLastOrderInfo] = useState<OrderReceipt | null>(null);
@@ -75,6 +86,14 @@ export default function TakingOrderPage() {
   const [returNotes, setReturNotes] = useState('');
   const [returSuccessMsg, setReturSuccessMsg] = useState('');
   const [returHistory, setReturHistory] = useState<ReturItem[]>([]);
+
+  // Pagination states
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogItemsPerPage, setCatalogItemsPerPage] = useState(6);
+  const [returPage, setReturPage] = useState(1);
+  const [returItemsPerPage, setReturItemsPerPage] = useState(5);
+  const [orderHistoryPage, setOrderHistoryPage] = useState(1);
+  const [orderHistoryItemsPerPage, setOrderHistoryItemsPerPage] = useState(5);
 
   useEffect(() => {
     const syncData = () => {
@@ -222,10 +241,83 @@ export default function TakingOrderPage() {
     setTimeout(() => setReturSuccessMsg(''), 5000);
   };
 
+  const handleAddProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProdName.trim() || !newProdPrice) return;
+
+    const newId = `PRD-00${catalogProducts.length + 1}`;
+    const priceNum = Number(newProdPrice) || 0;
+    const stockNum = Number(newProdStock) || 50;
+
+    const newProd: CatalogProduct = {
+      id: newId,
+      name: newProdName.trim(),
+      category: newProdCategory,
+      price: priceNum,
+      stock: stockNum,
+      unit: newProdUnit.trim() || 'pcs',
+      promo:
+        newProdPromo === 'b5g1'
+          ? { type: 'b5g1', label: 'Beli 5 Gratis 1' }
+          : newProdPromo === 'discount'
+          ? { type: 'discount', label: 'Hemat 5%' }
+          : undefined,
+    };
+
+    setStoredCatalogProducts([newProd, ...catalogProducts]);
+
+    // Also synchronize into warehouse stocks for supervisor inventory monitoring
+    const currentWarehouse = getStoredWarehouseStocks();
+    const newWarehouseItem: WarehouseStockItem = {
+      sku: newId,
+      name: newProd.name,
+      category: newProd.category,
+      depoStock: stockNum,
+      safetyStock: 20,
+      reorderPoint: 30,
+      unit: newProd.unit,
+      status: stockNum > 30 ? 'Aman' : stockNum > 0 ? 'Kritis' : 'Habis',
+      daysOfInventory: Math.floor(stockNum / 10),
+      fastMovingRank: currentWarehouse.length + 1,
+    };
+    setStoredWarehouseStocks([newWarehouseItem, ...currentWarehouse]);
+
+    setShowAddProductModal(false);
+    setNewProdName('');
+    setNewProdPrice('');
+    setNewProdStock('100');
+    setNewProdUnit('pcs');
+    setNewProdPromo('none');
+  };
+
   const filteredProducts = catalogProducts.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.category.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalCatalogPages = Math.ceil(filteredProducts.length / catalogItemsPerPage) || 1;
+  const paginatedCatalogProducts = filteredProducts.slice(
+    (catalogPage - 1) * catalogItemsPerPage,
+    catalogPage * catalogItemsPerPage
+  );
+
+  const totalReturPages = Math.ceil(returHistory.length / returItemsPerPage) || 1;
+  const paginatedReturHistory = returHistory.slice(
+    (returPage - 1) * returItemsPerPage,
+    returPage * returItemsPerPage
+  );
+
+  const filteredOrders = salesOrders.filter((order) => {
+    const matchSearch =
+      order.id.toLowerCase().includes(historySearch.toLowerCase()) ||
+      order.outletName.toLowerCase().includes(historySearch.toLowerCase());
+    return matchSearch;
+  });
+  const totalOrderPages = Math.ceil(filteredOrders.length / orderHistoryItemsPerPage) || 1;
+  const paginatedOrders = filteredOrders.slice(
+    (orderHistoryPage - 1) * orderHistoryItemsPerPage,
+    orderHistoryPage * orderHistoryItemsPerPage
   );
 
   return (
@@ -391,7 +483,10 @@ export default function TakingOrderPage() {
                   type="text"
                   placeholder="Ketik nama produk / kategori..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCatalogPage(1);
+                  }}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-blue-500 outline-none"
                 />
               </div>
@@ -403,15 +498,25 @@ export default function TakingOrderPage() {
             
             {/* Left: Product Catalog */}
             <div className="lg:col-span-7 space-y-3">
-              <h2 className="text-sm font-bold text-slate-800 flex items-center justify-between">
-                <span>Katalog Produk FMCG</span>
-                <span className="text-xs text-slate-500 font-normal">
-                  {filteredProducts.length} produk tersedia
-                </span>
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span>Katalog Produk FMCG</span>
+                  <span className="text-xs text-slate-500 font-normal">
+                    ({filteredProducts.length} produk tersedia)
+                  </span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowAddProductModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer self-start sm:self-auto"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah Produk Baru</span>
+                </button>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {filteredProducts.map((product) => {
+                {paginatedCatalogProducts.map((product) => {
                   const qty = cart[product.id] || 0;
                   return (
                     <div
@@ -468,6 +573,16 @@ export default function TakingOrderPage() {
                   );
                 })}
               </div>
+
+              {/* FMCG Catalog Pagination */}
+              <Pagination
+                currentPage={catalogPage}
+                totalPages={totalCatalogPages}
+                totalItems={filteredProducts.length}
+                itemsPerPage={catalogItemsPerPage}
+                onPageChange={setCatalogPage}
+                onItemsPerPageChange={setCatalogItemsPerPage}
+              />
             </div>
 
             {/* Right: Cart & Order Breakdown */}
@@ -701,7 +816,7 @@ export default function TakingOrderPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {returHistory.map((item) => (
+                  {paginatedReturHistory.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50/80">
                       <td className="p-3 font-semibold text-blue-600">{item.id}</td>
                       <td className="p-3 font-medium text-slate-800">{item.outlet}</td>
@@ -718,6 +833,16 @@ export default function TakingOrderPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Retur History Pagination */}
+            <Pagination
+              currentPage={returPage}
+              totalPages={totalReturPages}
+              totalItems={returHistory.length}
+              itemsPerPage={returItemsPerPage}
+              onPageChange={setReturPage}
+              onItemsPerPageChange={setReturItemsPerPage}
+            />
           </div>
         </div>
       )}
@@ -778,7 +903,10 @@ export default function TakingOrderPage() {
                 type="text"
                 placeholder="Cari nomor PO atau nama toko..."
                 value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
+                onChange={(e) => {
+                  setHistorySearch(e.target.value);
+                  setOrderHistoryPage(1);
+                }}
                 className="w-full pl-9 pr-3 py-2 bg-white border border-blue-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 outline-none"
               />
             </div>
@@ -790,7 +918,7 @@ export default function TakingOrderPage() {
               <div>
                 <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <FileText className="w-4 h-4 text-blue-600" />
-                  <span>Daftar Transaksi Pesanan Taking Order ({salesOrders.length})</span>
+                  <span>Daftar Transaksi Pesanan Taking Order ({filteredOrders.length})</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Lacak status otorisasi supervisi, rincian barang pesanan, dan termin pembayaran
@@ -801,20 +929,14 @@ export default function TakingOrderPage() {
               </span>
             </div>
 
-            {salesOrders.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <div className="p-10 text-center text-xs text-slate-400">
-                Belum ada pesanan yang diterbitkan. Silakan buat pesanan di tab Form Taking Order.
+                Belum ada pesanan yang sesuai dengan kriteria pencarian.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {salesOrders
-                  .filter((order) => {
-                    const matchSearch =
-                      order.id.toLowerCase().includes(historySearch.toLowerCase()) ||
-                      order.outletName.toLowerCase().includes(historySearch.toLowerCase());
-                    return matchSearch;
-                  })
-                  .map((order) => {
+              <>
+                <div className="divide-y divide-slate-100">
+                  {paginatedOrders.map((order) => {
                     const isPending = order.status === 'Menunggu Persetujuan Supervisor';
                     const isApproved = order.status === 'Disetujui & Siap Kirim';
                     const isRejected = order.status === 'Ditolak Supervisor';
@@ -901,7 +1023,18 @@ export default function TakingOrderPage() {
                       </div>
                     );
                   })}
-              </div>
+                </div>
+
+                {/* Sales Orders Pagination */}
+                <Pagination
+                  currentPage={orderHistoryPage}
+                  totalPages={totalOrderPages}
+                  totalItems={filteredOrders.length}
+                  itemsPerPage={orderHistoryItemsPerPage}
+                  onPageChange={setOrderHistoryPage}
+                  onItemsPerPageChange={setOrderHistoryItemsPerPage}
+                />
+              </>
             )}
           </div>
         </div>
@@ -1066,6 +1199,135 @@ export default function TakingOrderPage() {
             >
               Tutup Rincian
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Tambah Produk Baru ke Katalog & Gudang */}
+      {showAddProductModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-blue-100 text-blue-600">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Tambah Produk FMCG Baru</h3>
+                  <p className="text-xs text-slate-500">
+                    Produk akan tersimpan ke katalog taking order & stok depo gudang
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddProductModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddProduct} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Nama Produk:</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Biskuit Roma Kelapa 300g"
+                  value={newProdName}
+                  onChange={(e) => setNewProdName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Kategori:</label>
+                  <select
+                    value={newProdCategory}
+                    onChange={(e) => setNewProdCategory(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="Sembako">Sembako</option>
+                    <option value="Minuman">Minuman</option>
+                    <option value="Makanan Ringan">Makanan Ringan</option>
+                    <option value="Personal Care">Personal Care</option>
+                    <option value="Kebersihan">Kebersihan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Satuan Unit:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="pcs / karton / bungkus"
+                    value={newProdUnit}
+                    onChange={(e) => setNewProdUnit(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Harga Satuan (Rp):</label>
+                  <input
+                    type="number"
+                    required
+                    min="100"
+                    placeholder="Contoh: 12500"
+                    value={newProdPrice}
+                    onChange={(e) => setNewProdPrice(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Stok Fisik Awal:</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    placeholder="Contoh: 150"
+                    value={newProdStock}
+                    onChange={(e) => setNewProdStock(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Skema Promo Otomatis:</label>
+                <select
+                  value={newProdPromo}
+                  onChange={(e) => setNewProdPromo(e.target.value as 'none' | 'b5g1' | 'discount')}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="none">Tanpa Promo (Harga Normal)</option>
+                  <option value="b5g1">Beli 5 Gratis 1 (B5G1)</option>
+                  <option value="discount">Diskon Khusus 5%</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddProductModal(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Simpan Produk</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
